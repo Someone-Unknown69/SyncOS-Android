@@ -3,6 +3,10 @@ import 'socket_client.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'music_player.dart';
+import 'services/socket_processor.dart';
+
+// socket data processor
+final processor = SocketProcessor();
 
 class DashboardItem {
   final String label;
@@ -164,7 +168,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: _spacing),
 
                         MusicPlayerWidget(
-                          imagePath: 'assets/images/album2.png',
+                          imagePath: 'assets/images/album.png',
                           trackName: "We Don't Talk Anymore",
                           artistName: "Charlie Puth & Selena Gomez",
                           onPlay: () => {debugPrint("Play")},
@@ -333,9 +337,9 @@ class _HomeScreenState extends State<HomeScreen> {
           
           children: [
             ValueListenableBuilder(
-              valueListenable: client.deviceName,
+              valueListenable: processor.deviceName,
               builder: (context, name , child) {
-                return Text(client.deviceName.value, style: TextStyle(fontWeight: FontWeight.bold));
+                return Text(processor.deviceName.value, style: TextStyle(fontWeight: FontWeight.bold));
               },
             ),
 
@@ -347,10 +351,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(children: [
                   // Display battery info and charging status
                   ValueListenableBuilder(
-                    valueListenable: client.batteryLevel, 
+                    valueListenable: processor.batteryLevel, 
                       builder: (context, level, child) {
                         return ValueListenableBuilder(
-                          valueListenable: client.isCharging, 
+                          valueListenable: processor.isCharging, 
                           builder: (context, charging, child) {
                             return Icon(
                             charging ? Icons.battery_charging_full : Icons.battery_std,
@@ -362,7 +366,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
 
                     ValueListenableBuilder(
-                      valueListenable: client.batteryLevel, 
+                      valueListenable: processor.batteryLevel, 
                       builder: (context, level, child) => Text("$level% remaining")
                     ),
                   ],
@@ -370,7 +374,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 // Displays latency updates
                 ValueListenableBuilder(
-                  valueListenable: client.latency, 
+                  valueListenable: processor.latency, 
                   builder: (context, value, child) {
                     return Row(
                       children: [

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'services/socket_processor.dart';
 
 
 class SocketClient extends ChangeNotifier{
@@ -10,16 +11,31 @@ class SocketClient extends ChangeNotifier{
   final ValueNotifier<int> connectionStatus = ValueNotifier<int>(0);
   final _messageController = StreamController<Map<String, dynamic>>.broadcast();
   StreamSubscription? _subscription;
+  
+  // socket data processor
+  final processor = SocketProcessor();
 
   // Defining where to connect the socket
   SocketClient();
   
-  // ----------------------------    Device Information    --------------------------------------
-  final ValueNotifier<int> batteryLevel = ValueNotifier<int>(0);
-  final ValueNotifier<int> latency = ValueNotifier<int>(0);
-  final ValueNotifier<String>  deviceName = ValueNotifier<String>('Unknown');
-  final ValueNotifier<bool> isCharging = ValueNotifier<bool>(false);
+  // ---------------------------     Request send template     ----------------------------------
+  // This is the template for any request sent to the other device
 
+  Map<String, dynamic> createRequest({
+  required String op,
+  required String action,
+  Map<String, dynamic>? args,
+  }) {
+    return {
+      "op": op,           // Operation type                    
+      "action": action,   // action to be taken
+      "args": {},         // arguments  
+      "id": DateTime.now().millisecondsSinceEpoch, // Sequence number
+    };
+  }
+
+  // ----------------------------    Device Information    --------------------------------------
+  final ValueNotifier<bool> isCharging = ValueNotifier<bool>(false);
   final Stopwatch _stopwatch = Stopwatch();
 
   // ---------------------------------    Getters    -------------------------------------------- 
@@ -27,7 +43,6 @@ class SocketClient extends ChangeNotifier{
 
 
   // --------------------------------     Methods    --------------------------------------------
-  Timer? _timer; // Timer to measure latency
 
   // Asynchronous method to connect to socket and receive data
   Future<void> connect(String host, int port) async{
@@ -38,53 +53,41 @@ class SocketClient extends ChangeNotifier{
       connectionStatus.value = 1;
       bool approved = false;
 
-      // For continuously listening to receiving data
+
+      // For continously recieving data
       _subscription = _socket!
       .cast<List<int>>()
       .transform(utf8.decoder)
+      .transform(const LineSplitter())
       .listen(
-        (String data) {
-          final trimmed = data.trim();
-          debugPrint("Data recieved: $trimmed");
+        (String line) {
+          final rawJson = line.trim();
+          if(rawJson.isEmpty) return;
+          debugPrint("Data recieved: $rawJson");
 
           if (!approved) {
-            if (trimmed == 'ACCEPTED') {
+            if (rawJson == 'ACCEPTED') {
               approved = true;
               connectionStatus.value = 2;
               _stopwatch.reset();
               _stopwatch.start();
-              debugPrint('Connection approved by server.');
             } else {
-              debugPrint('Connection approval denied or invalid response.');
               disconnect();
             }
             return;
           }
 
           try {
-            final info = jsonDecode(trimmed);
-            if (info['type'] == 'status') { // system info
-              deviceName.value = info['name'] ?? "Unknown";
-              batteryLevel.value = info['battery'] ?? 0;
-              isCharging.value = info['isCharging'] ?? false;
-              latency.value = _stopwatch.elapsedMilliseconds;
-              _stopwatch.reset();
-              _stopwatch.start(); // Restart for next measurement
-              
-              notifyListeners(); 
-            } else {
-              _messageController.add(info);           // Pushing data in the _messageController pipe
-            }
+            processor.handle(rawJson);
           } catch (e) {
-            debugPrint('Error parsing data: $e');
+            connectionStatus.value = 0;
+            debugPrint('Error while connecting to the server $e');
           }
         },
-        onError: (e){
-          debugPrint('Error : $e');
-        },
+        onError: (e) => debugPrint("Error : $e"),
         onDone: () => disconnect(),
       );
-
+      
       _socket!.done.then((_) {
         connectionStatus.value = 0;
         _socket = null;
@@ -104,9 +107,6 @@ class SocketClient extends ChangeNotifier{
 
   // Method to disconnect the socket
   void disconnect() {
-    _timer?.cancel();         // Kill the timer first
-    _timer = null;
-
     _stopwatch.stop();        // Stop the stopwatch
 
     _subscription?.cancel();  // stop the listener
@@ -140,5 +140,3 @@ class SocketClient extends ChangeNotifier{
   }
 
 }
-
-
