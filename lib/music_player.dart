@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 
-
 // -----------------------------      Get metadata from player      ----------------------------------
 
 // await NowPlaying.instance.start();
@@ -90,7 +89,7 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
 
         return Container(
           margin: const EdgeInsets.all(5),
-          height: 120,
+          height: 200,
           clipBehavior: Clip.antiAlias,
 
           decoration: BoxDecoration(
@@ -103,7 +102,7 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
               // Blurred Background
               Positioned.fill(
                 child: ImageFiltered(
-                  imageFilter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+                  imageFilter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
                   child: Image.asset(widget.imagePath, fit: BoxFit.cover),
                 ),
               ),
@@ -113,8 +112,8 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        localTheme.surface.withValues(alpha: 0.0),
-                        localTheme.scrim.withValues(alpha: 1.0),
+                        localTheme.surface.withValues(alpha: 1.0),
+                        localTheme.scrim.withValues(alpha: -0.1),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -125,19 +124,48 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
 
               // Layout Content
               Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _TrackInfo(
-                      name: widget.trackName,
-                      artist: widget.artistName,
-                      theme: localTheme,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                          _TrackInfo(
+                            name: widget.trackName,
+                            artist: widget.artistName,
+                            theme: localTheme,
+                          ),
+
+                          // Play button
+                          IconButton(
+                          onPressed: widget.onPlay,
+                          icon: const Icon(Icons.play_arrow_outlined, size: 25),
+                          color: theme.primaryContainer,
+                          style: IconButton.styleFrom(
+                            backgroundColor: theme.onPrimaryContainer,
+                            shape: const CircleBorder(),
+                            padding: const EdgeInsets.all(15),
+                          ),
+                        ),
+                      ],
                     ),
-                    _ControlButtons(
-                      theme: localTheme,
-                      onPlay: widget.onPlay,
-                      onNext: widget.onNext,
-                      onPrev: widget.onPrev,
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(child: 
+                          MusicProgressSlider(
+                            theme: theme,
+                          ),
+                        ),
+                        
+                        _ControlButtons(
+                          theme: localTheme,
+                          onNext: widget.onNext,
+                          onPrev: widget.onPrev,
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -164,42 +192,42 @@ class _TrackInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            name,
-            style: TextStyle(
-              color: theme.onSurface,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              name,
+              style: TextStyle(
+                color: theme.onSecondaryContainer,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          Text(
-            artist,
-            style: TextStyle(color: theme.onSurfaceVariant, fontSize: 14),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
+            Text(
+              artist,
+              style: TextStyle(color: theme.onSurfaceVariant, fontSize: 12),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
 
 class _ControlButtons extends StatelessWidget {
   final ColorScheme theme;
-  final VoidCallback onPlay;
   final VoidCallback onNext;
   final VoidCallback onPrev;
 
   const _ControlButtons({
     required this.theme,
-    required this.onPlay,
     required this.onNext,
     required this.onPrev,
   });
@@ -207,7 +235,7 @@ class _ControlButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
         // PREVIOUS BUTTON
         IconButton(
@@ -217,19 +245,6 @@ class _ControlButtons extends StatelessWidget {
           style: IconButton.styleFrom(
             backgroundColor: theme.secondaryContainer,
             shape: const CircleBorder(),
-          ),
-        ),
-        const SizedBox(width: 3),
-
-        // PLAY BUTTON
-        IconButton(
-          onPressed: onPlay,
-          icon: const Icon(Icons.play_arrow_outlined, size: 25),
-          color: theme.primaryContainer,
-          style: IconButton.styleFrom(
-            backgroundColor: theme.onPrimaryContainer,
-            shape: const CircleBorder(),
-            padding: const EdgeInsets.all(15),
           ),
         ),
         const SizedBox(width: 3),
@@ -249,4 +264,41 @@ class _ControlButtons extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------------------------------
+class MusicProgressSlider extends StatefulWidget {
+  final ColorScheme theme;
+
+  const MusicProgressSlider({
+    super.key,
+    required this.theme
+  });
+
+  @override
+  State<MusicProgressSlider> createState() => _MusicProgressSliderState();
+}
+
+class _MusicProgressSliderState extends State<MusicProgressSlider> {
+  double _value = 50.0;
+  final double _max = 100; // 100 % of the time
+
+  @override
+  Widget build(BuildContext context) {
+    return SliderTheme(
+      data: SliderTheme.of(context).copyWith(
+        trackHeight: 5.0,
+        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7.0),
+        overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
+        activeTrackColor: Theme.of(context).colorScheme.onSecondaryContainer,
+        inactiveTrackColor: Theme.of(context).colorScheme.onSecondary,
+        thumbColor: Theme.of(context).colorScheme.onSecondaryContainer,
+      ),
+      child: Slider(
+        value: _value,
+        min: 0.0,
+        max: _max,
+        onChanged: (newValue) {
+          setState(() => _value = newValue);
+        },
+      ),
+    );
+  }
+}
