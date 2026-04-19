@@ -167,13 +167,18 @@ class _HomeScreenState extends State<HomeScreen> {
                         _statusConnected(),
                         const SizedBox(height: _spacing),
 
-                        MusicPlayerWidget(
-                          imagePath: 'assets/images/album.png',
-                          trackName: "We Don't Talk Anymore",
-                          artistName: "Charlie Puth & Selena Gomez",
-                          onPlay: () => {debugPrint("Play")},
-                          onPrev: () => {debugPrint("Prev")},
-                          onNext: () => {debugPrint("Next")}
+                        ValueListenableBuilder<MediaMetadata>(
+                          valueListenable: processor.metadata, 
+                          builder: (context, info, child) {
+                            return MusicPlayerWidget(
+                              imagePath: info.albumArt,
+                              trackName: info.title,
+                              artistName: info.artist,
+                              onPlay: () => {debugPrint("Play")},
+                              onPrev: () => {debugPrint("Prev")},
+                              onNext: () => {debugPrint("Next")}
+                            );
+                          },
                         ),
 
                         const SizedBox(height: _spacing),
