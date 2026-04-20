@@ -1,5 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
 // -----------------------------      Get metadata from player      ----------------------------------
 
@@ -33,18 +35,24 @@ class MusicPlayerWidget extends StatefulWidget {
   final String imagePath;
   final String trackName;
   final String artistName;
+  final int position;
+  final int duration;
   final VoidCallback onPlay;
   final VoidCallback onNext;
   final VoidCallback onPrev;
+  final String? albumArtBase64;
 
   const MusicPlayerWidget({
     super.key,
     required this.imagePath,
     required this.trackName,
     required this.artistName,
+    required this.position,
+    required this.duration,
     required this.onPlay,
     required this.onNext,
     required this.onPrev,
+    required this.albumArtBase64,
   });
 
   @override
@@ -53,6 +61,7 @@ class MusicPlayerWidget extends StatefulWidget {
 
 class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
   ColorScheme? _dynamicScheme;
+
 
   @override
   void initState() {
@@ -80,6 +89,14 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
 
   @override
   Widget build(BuildContext context) {
+    Uint8List? imageBytes;
+    if (widget.albumArtBase64 != null && widget.albumArtBase64!.isNotEmpty) {
+      try {
+        imageBytes = base64Decode(widget.albumArtBase64!);
+      } catch (e) {
+        debugPrint("Error decoding base64 image: $e");
+      }
+    }
     final theme = _dynamicScheme ?? Theme.of(context).colorScheme;
 
     return Theme(
@@ -99,12 +116,13 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
           
           child: Stack(
             children: [
-              // Blurred Background
               Positioned.fill(
-                child: ImageFiltered(
-                  imageFilter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
-                  child: Image.asset(widget.imagePath, fit: BoxFit.cover),
-                ),
+              child: imageBytes != null
+                ? ImageFiltered(
+                    imageFilter: ImageFilter.blur(sigmaX: 0, sigmaY: 0), 
+                    child: Image.memory(imageBytes, fit: BoxFit.cover),
+                  )
+                : Container(color: localTheme.surfaceContainer), // Fallback if no art
               ),
 
               Positioned.fill(
@@ -131,14 +149,16 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        Expanded(child: 
                           _TrackInfo(
                             name: widget.trackName,
                             artist: widget.artistName,
                             theme: localTheme,
                           ),
+                        ),
 
                           // Play button
-                          IconButton(
+                        IconButton(
                           onPressed: widget.onPlay,
                           icon: const Icon(Icons.play_arrow_outlined, size: 25),
                           color: theme.primaryContainer,
@@ -157,6 +177,8 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
                         Expanded(child: 
                           MusicProgressSlider(
                             theme: theme,
+                            duration: widget.duration.toDouble(),
+                            position: widget.position.toDouble(),
                           ),
                         ),
                         
@@ -178,7 +200,6 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
   }
 }
 
-
 class _TrackInfo extends StatelessWidget {
   final String name;
   final String artist;
@@ -192,29 +213,24 @@ class _TrackInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              name,
-              style: TextStyle(
-                color: theme.onSecondaryContainer,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              artist,
-              style: TextStyle(color: theme.onSurfaceVariant, fontSize: 12),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+        Text(
+          name,
+          style: TextStyle(
+            color: theme.onSecondaryContainer,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+        ),
+        Text(
+          artist,
+          style: TextStyle(color: theme.onSurfaceVariant, fontSize: 12),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
         ),
       ],
     );
@@ -266,10 +282,14 @@ class _ControlButtons extends StatelessWidget {
 
 class MusicProgressSlider extends StatefulWidget {
   final ColorScheme theme;
+  final double duration;
+  final double position;
 
   const MusicProgressSlider({
     super.key,
-    required this.theme
+    required this.theme,
+    required this.duration,
+    required this.position,
   });
 
   @override
@@ -277,14 +297,16 @@ class MusicProgressSlider extends StatefulWidget {
 }
 
 class _MusicProgressSliderState extends State<MusicProgressSlider> {
-  double _value = 50.0;
-  final double _max = 100; // 100 % of the time
-
   @override
   Widget build(BuildContext context) {
+    double progress = 0.5;
+    if(widget.position != 0 && widget.duration != 0) {
+      progress = widget.position / widget.duration;
+    }
+
     return SliderTheme(
       data: SliderTheme.of(context).copyWith(
-        trackHeight: 5.0,
+        trackHeight: 2.0,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7.0),
         overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
         activeTrackColor: Theme.of(context).colorScheme.onSecondaryContainer,
@@ -292,13 +314,14 @@ class _MusicProgressSliderState extends State<MusicProgressSlider> {
         thumbColor: Theme.of(context).colorScheme.onSecondaryContainer,
       ),
       child: Slider(
-        value: _value,
+        value: progress,
         min: 0.0,
-        max: _max,
+        max: 1.0,
         onChanged: (newValue) {
-          setState(() => _value = newValue);
+          setState(() => progress = newValue);
         },
       ),
     );
   }
+
 }

@@ -174,9 +174,12 @@ class _HomeScreenState extends State<HomeScreen> {
                               imagePath: info.albumArt,
                               trackName: info.title,
                               artistName: info.artist,
+                              position: info.position,
+                              duration: info.duration,
                               onPlay: () => {debugPrint("Play")},
                               onPrev: () => {debugPrint("Prev")},
-                              onNext: () => {debugPrint("Next")}
+                              onNext: () => {debugPrint("Next")},
+                              albumArtBase64: "",
                             );
                           },
                         ),
@@ -376,26 +379,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                 ),
-
-                // Displays latency updates
-                ValueListenableBuilder(
-                  valueListenable: processor.latency, 
-                  builder: (context, value, child) {
-                    return Row(
-                      children: [
-                        const Icon(Icons.sensors, size: 16, color: Colors.grey),
-                        Text(
-                          " $value ms",
-                          style: TextStyle(
-                            color: value < 50 ? Colors.green : Colors.orange,
-                            fontSize: 12,
-                          ),
-                        )
-                      ],
-                    );
-                  }
-                )
-
               ],
             ),
 

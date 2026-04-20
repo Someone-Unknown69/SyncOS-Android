@@ -69,7 +69,7 @@ class SocketProcessor {
   factory SocketProcessor() => _instance;
   SocketProcessor._internal() {
     _handlers = {
-      "sys_info": _handleStatus,
+      "battery_info": _handleBattery,
       "music": _handleMusic,
     };
   }
@@ -104,18 +104,13 @@ class SocketProcessor {
 
   // ---------------------------     Individual Handler Logics      ---------------------------------
 
-  void _handleStatus(Map<String, dynamic> data) {
+  void _handleBattery(Map<String, dynamic> data) {
     final args = data['args'];
-    debugPrint("$args");
-    deviceName.value = args['name'] ?? "Unknown";
-    batteryLevel.value = args['battery'] ?? 0;
-    isCharging.value = args['isCharging'] ?? false;
-    
-    latency.value = stopwatch.elapsedMilliseconds;
-    stopwatch.reset();
-    stopwatch.start();
+    batteryLevel.value = args['level'] ?? 0;
+    isCharging.value = args['status'] ?? false;
+    deviceName.value = args['device'] ?? "Unknown";
 
-    // debugPrint("Updated: ${deviceName.value} - ${isCharging.value}%");
+    debugPrint("Updated: ${batteryLevel.value} - ${isCharging.value}%");
 
   }
 

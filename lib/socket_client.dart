@@ -53,12 +53,10 @@ class SocketClient extends ChangeNotifier{
       connectionStatus.value = 1;
       bool approved = false;
 
-
       // For continously recieving data
       _subscription = _socket!
       .cast<List<int>>()
       .transform(utf8.decoder)
-      .transform(const LineSplitter())
       .listen(
         (String line) {
           final rawJson = line.trim();
