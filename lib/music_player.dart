@@ -1,13 +1,13 @@
-import 'dart:ui';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:io';
+import 'socket_client.dart';
 
 // -----------------------------      Get metadata from player      ----------------------------------
 
 // await NowPlaying.instance.start();
-
-
 
 
 // -------------------------------      Dashboard Widget     ---------------------------------------
@@ -37,10 +37,12 @@ class MusicPlayerWidget extends StatefulWidget {
   final String artistName;
   final int position;
   final int duration;
+  final String status;
   final VoidCallback onPlay;
   final VoidCallback onNext;
   final VoidCallback onPrev;
   final String? albumArtBase64;
+  final SocketClient? client;
 
   const MusicPlayerWidget({
     super.key,
@@ -49,10 +51,12 @@ class MusicPlayerWidget extends StatefulWidget {
     required this.artistName,
     required this.position,
     required this.duration,
+    required this.status,
     required this.onPlay,
     required this.onNext,
     required this.onPrev,
     required this.albumArtBase64,
+    this.client,
   });
 
   @override
@@ -78,8 +82,23 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
   }
 
   Future<void> _updateTheme() async {
+    ImageProvider provider;
+    if (widget.imagePath != 'N/A' && widget.imagePath.length > 50) {
+      try {
+        Uint8List bytes = base64Decode(widget.imagePath);
+        try {
+          bytes = Uint8List.fromList(gzip.decode(bytes));
+        } catch (_) {} // ignore if not gzipped
+        provider = MemoryImage(bytes);
+      } catch (e) {
+        provider = const AssetImage('assets/images/album2.png'); // Fallback asset
+      }
+    } else {
+      provider = const AssetImage('assets/images/album2.png');
+    }
+
     final scheme = await MusicThemeService.generate(
-      AssetImage(widget.imagePath),
+      provider,
       Brightness.dark,
     );
     if (mounted) {
@@ -90,13 +109,17 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
   @override
   Widget build(BuildContext context) {
     Uint8List? imageBytes;
-    if (widget.albumArtBase64 != null && widget.albumArtBase64!.isNotEmpty) {
+    if (widget.imagePath != 'N/A' && widget.imagePath.length > 50) {
       try {
-        imageBytes = base64Decode(widget.albumArtBase64!);
+        imageBytes = base64Decode(widget.imagePath);
+        try {
+          imageBytes = Uint8List.fromList(gzip.decode(imageBytes));
+        } catch (_) {}
       } catch (e) {
         debugPrint("Error decoding base64 image: $e");
       }
     }
+
     final theme = _dynamicScheme ?? Theme.of(context).colorScheme;
 
     return Theme(
@@ -117,12 +140,15 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
           child: Stack(
             children: [
               Positioned.fill(
-              child: imageBytes != null
-                ? ImageFiltered(
-                    imageFilter: ImageFilter.blur(sigmaX: 0, sigmaY: 0), 
-                    child: Image.memory(imageBytes, fit: BoxFit.cover),
-                  )
-                : Container(color: localTheme.surfaceContainer), // Fallback if no art
+                child: imageBytes != null
+                  ? SizedBox.expand(
+                      child: Image.memory(
+                        imageBytes, 
+                        fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                      ),
+                    )
+                  : Container(color: localTheme.surfaceContainer), // Fallback if no art
               ),
 
               Positioned.fill(
@@ -160,7 +186,10 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
                           // Play button
                         IconButton(
                           onPressed: widget.onPlay,
-                          icon: const Icon(Icons.play_arrow_outlined, size: 25),
+                          icon: Icon(
+                            widget.status == 'Playing' ? Icons.pause_outlined : Icons.play_arrow_outlined,
+                            size: 25
+                          ),
                           color: theme.primaryContainer,
                           style: IconButton.styleFrom(
                             backgroundColor: theme.onPrimaryContainer,
@@ -179,6 +208,8 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
                             theme: theme,
                             duration: widget.duration.toDouble(),
                             position: widget.position.toDouble(),
+                            status: widget.status,
+                            client: widget.client,
                           ),
                         ),
                         
@@ -280,16 +311,21 @@ class _ControlButtons extends StatelessWidget {
   }
 }
 
+
 class MusicProgressSlider extends StatefulWidget {
   final ColorScheme theme;
   final double duration;
   final double position;
+  final String status;
+  final SocketClient? client;
 
   const MusicProgressSlider({
     super.key,
     required this.theme,
     required this.duration,
     required this.position,
+    required this.status,
+    this.client,
   });
 
   @override
@@ -297,11 +333,54 @@ class MusicProgressSlider extends StatefulWidget {
 }
 
 class _MusicProgressSliderState extends State<MusicProgressSlider> {
+  double? _dragValue;
+  late double _localPosition;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _localPosition = widget.position;
+    _updateTimer();
+  }
+
+  @override
+  void didUpdateWidget(MusicProgressSlider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.position != widget.position) {
+      if ((_localPosition - widget.position).abs() > 2) {
+        _localPosition = widget.position;
+      }
+    }
+    if (oldWidget.status != widget.status) {
+      _updateTimer();
+    }
+  }
+
+  void _updateTimer() {
+    _timer?.cancel();
+    if (widget.status == 'Playing') {
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (mounted && _localPosition < widget.duration) {
+          setState(() {
+            _localPosition += 1.0;
+          });
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    double progress = 0.5;
-    if(widget.position != 0 && widget.duration != 0) {
-      progress = widget.position / widget.duration;
+    double progress = 0.0;
+    if(_localPosition != 0 && widget.duration != 0) {
+      progress = _localPosition / widget.duration;
     }
 
     return SliderTheme(
@@ -314,14 +393,28 @@ class _MusicProgressSliderState extends State<MusicProgressSlider> {
         thumbColor: Theme.of(context).colorScheme.onSecondaryContainer,
       ),
       child: Slider(
-        value: progress,
+        value: (_dragValue ?? progress).clamp(0.0, 1.0),
         min: 0.0,
         max: 1.0,
         onChanged: (newValue) {
-          setState(() => progress = newValue);
+          setState(() => _dragValue = newValue);
+        },
+        onChangeEnd: (newValue) {
+          if (widget.client != null && widget.duration > 0) {
+            final targetSeconds = (newValue * widget.duration).toInt();
+            widget.client!.sendJson({
+              "op": "seek",
+              "args": {"position": targetSeconds}
+            });
+            setState(() {
+              _localPosition = targetSeconds.toDouble();
+              _dragValue = null;
+            });
+          } else {
+            setState(() => _dragValue = null);
+          }
         },
       ),
     );
   }
-
 }

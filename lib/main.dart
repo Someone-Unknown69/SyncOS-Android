@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'socket_client.dart';
-import 'dart:io';
-import 'package:flutter/services.dart';
 import 'music_player.dart';
 import 'services/socket_processor.dart';
+import 'pairing_screen.dart';
 
 // socket data processor
 final processor = SocketProcessor();
@@ -21,8 +21,11 @@ class DashboardItem {
 }
 
 // The Entry Point
-void main() {
-  runApp(const RemoteControllerApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  final hasPaired = prefs.getString('pairing_token') != null;
+  runApp(RemoteControllerApp(hasPaired: hasPaired));
 }
 
 
@@ -54,7 +57,8 @@ ThemeData _buildTheme(Brightness brightness) {
 
 // Wrapper
 class RemoteControllerApp extends StatelessWidget {
-  const RemoteControllerApp({super.key});
+  final bool hasPaired;
+  const RemoteControllerApp({super.key, required this.hasPaired});
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +68,7 @@ class RemoteControllerApp extends StatelessWidget {
       darkTheme: _buildTheme(Brightness.dark),
       themeMode: ThemeMode.system,            // Forces app to use system mode as theme
 
-      home: const HomeScreen(),               // The starting page
+      home: hasPaired ? const HomeScreen() : const PairingScreen(),
     );
   }
 }
@@ -80,13 +84,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
 
   // Controllers / We can say variables
-  final TextEditingController _ipController = TextEditingController();
-  final  int _port = 9999; // Default is always 9999
   final SocketClient client = SocketClient();
 
   // Customization for UI
   static const double _borderRadius = 20;       // Can be used to change border radius
-  static const double _borderRadiusInput = 12;  // Input field border radius
   static const double _padding = 16;            // Self explanatory
   static const double _spacing = 12;            // Spacing between widgets
 
@@ -97,7 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
       icon: Icons.file_copy,
       onTap: () => (),
     ),
-        DashboardItem(
+    DashboardItem(
       label: 'Run Command',
       icon: Icons.terminal,
       onTap: () => (),
@@ -114,28 +115,33 @@ class _HomeScreenState extends State<HomeScreen> {
     ),
   ];
 
-  // Method to handle connection
-  void _handleConnect() async {
-    String ip = _ipController.text.trim();
-    final address = InternetAddress.tryParse(ip);
-
-    if (address?.type != InternetAddressType.IPv4) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please enter a valid IP address"),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
-    debugPrint("Connecting to $ip on port $_port...");
-    await client.connect(ip, _port);
+  @override
+  void initState() {
+    super.initState();
+    _handleConnect();
   }
 
+  // Method to handle connection
+  void _handleConnect() async {
+    final prefs = await SharedPreferences.getInstance();
+    final ip = prefs.getString('server_ip');
+    final port = prefs.getInt('server_port');
+    final httpPort = prefs.getInt('server_http_port');
+    final token = prefs.getString('pairing_token');
+    
+    if (ip != null && port != null) {
+      await client.connect(ip, port, httpPort: httpPort, token: token);
+    } else {
+      // Data missing, reset to Pairing
+      if (mounted) {
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const PairingScreen()));
+      }
+    }
+  }
 
   @override
   void dispose() { // Clean up memory when the app closes
-    _ipController.dispose();
+    client.disconnect();
     super.dispose();
   }
 
@@ -148,7 +154,9 @@ class _HomeScreenState extends State<HomeScreen> {
       behavior: HitTestBehavior.translucent, 
 
       child: Scaffold(
-        appBar: AppBar(title: const Text("Remote Controller")),
+        appBar: AppBar(
+          title: const Text("SyncOS"),
+        ),
         body: SafeArea(
           child: SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -156,14 +164,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
             child: Padding(
               padding: const EdgeInsets.all(_padding),
-              child: ValueListenableBuilder<int>(
+              child: ValueListenableBuilder<SocketConnectionState>(
                 valueListenable: client.connectionStatus,
                 builder: (context, connectionStatus, child) {
                   
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if(connectionStatus == 2) ...[
+                      if(connectionStatus == SocketConnectionState.connected) ...[
                         _statusConnected(),
                         const SizedBox(height: _spacing),
 
@@ -176,20 +184,24 @@ class _HomeScreenState extends State<HomeScreen> {
                               artistName: info.artist,
                               position: info.position,
                               duration: info.duration,
-                              onPlay: () => {debugPrint("Play")},
-                              onPrev: () => {debugPrint("Prev")},
-                              onNext: () => {debugPrint("Next")},
-                              albumArtBase64: "",
+                              status: info.status,
+                              onPlay: () => {},
+                              onPrev: () => {},
+                              onNext: () => {},
+                              albumArtBase64: "", // Not used directly in base64 anymore
+                              client: client, // Pass client for seek ops
                             );
                           },
                         ),
 
                         const SizedBox(height: _spacing),
                         _dashBoard(),
-                      ] else if(connectionStatus == 1) ...[
-                        _statusWaiting(),
+                      ] else if(connectionStatus == SocketConnectionState.connecting) ...[
+                        _statusWaiting('Connecting to Server...'),
+                      ] else if (connectionStatus == SocketConnectionState.reconnecting) ...[
+                        _statusWaiting('Connection lost. Reconnecting...'),
                       ] else 
-                        _statusNotConnected(),
+                        _statusDisconnected(),
                     ],
                   );
                 },
@@ -203,7 +215,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
   // Waiting for server approval widget
-  Widget _statusWaiting() {
+  Widget _statusWaiting(String message) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -219,7 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Waiting for approval',
+              message,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
@@ -236,16 +248,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
-                    'Request sent. Waiting for the server to accept the connection.',
+                    'Please ensure your computer is awake and SyncOS server is running.',
                     style: TextStyle(color: colorScheme.onSurfaceVariant),
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: _spacing),
-            Text(
-              'If approval is denied, the connection will close automatically.',
-              style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
             ),
           ],
         ),
@@ -254,8 +261,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
 
-  // IP address input widget
-  Widget _statusNotConnected() {
+  // Disconnected
+  Widget _statusDisconnected() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -271,49 +278,16 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              "Connection Settings",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              "Disconnected",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.red),
             ),
-            const SizedBox(height: _spacing), 
-            
-            TextField(
-              controller: _ipController, 
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-
-              // formatting the text
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                
-                LengthLimitingTextInputFormatter(15), 
-              ],
-
-              decoration: InputDecoration(
-                prefixIcon: Icon(Icons.laptop_rounded),
-                labelText: "IP Address",
-                hintText: "e.g. 192.168.1.5",
-                border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(_borderRadiusInput),
-                    ),
-                    // The border when the field is NOT focused
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(_borderRadiusInput),
-                      borderSide: BorderSide(color: Colors.grey.shade400),
-                    ),
-                    // The border when the user is typing
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(_borderRadiusInput),
-                      borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
-                    ),
-              ),
-            ),
-            
             const SizedBox(height: _spacing),
-
+            
             // Button for connection
             FilledButton.icon(
               onPressed: () => _handleConnect(),
-              icon: const Icon(Icons.power),
-              label: const Text("Connect"),
+              icon: const Icon(Icons.refresh),
+              label: const Text("Reconnect"),
               style: ElevatedButton.styleFrom(
                 elevation: 2, 
                 shape: RoundedRectangleBorder(
@@ -406,7 +380,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 // Ping button
                 FilledButton.icon(
-                  onPressed: () => client.send('PING'),
+                  onPressed: () => client.sendRaw('PING'),
                   icon: const Icon(Icons.network_ping_rounded),
                   label: const Text("Ping"),
                   style: FilledButton.styleFrom(

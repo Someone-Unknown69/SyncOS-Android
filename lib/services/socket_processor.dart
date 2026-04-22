@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 // Metadata class
 class MediaMetadata {
@@ -22,10 +23,8 @@ class MediaMetadata {
     required this.position,
     required this.duration,
     required this.volume,
-    
   });
 
-  // A factory to provide default "empty" values
   factory MediaMetadata.initial() {
     return const MediaMetadata(
       title: "Unknown",
@@ -34,12 +33,11 @@ class MediaMetadata {
       albumArt: "N/A",
       status: "Playing",
       volume: 0.0,
-      position: 50,
-      duration: 100,
+      position: 0,
+      duration: 0,
     );
   }
   
-  // Useful for updating specific fields without recreating everything
   MediaMetadata copyWith({
     String? title, 
     String? artist, 
@@ -71,6 +69,7 @@ class SocketProcessor {
     _handlers = {
       "battery_info": _handleBattery,
       "music": _handleMusic,
+      "fetch_art": _handleFetchArt,
     };
   }
 
@@ -81,11 +80,14 @@ class SocketProcessor {
   final ValueNotifier<int> batteryLevel = ValueNotifier<int>(0);
   final ValueNotifier<String> deviceName = ValueNotifier<String>("Unknown");
   final ValueNotifier<bool> isCharging = ValueNotifier<bool>(false);
-  final ValueNotifier<int> latency = ValueNotifier<int>(0);
-  final Stopwatch stopwatch = Stopwatch();
-
+  
   final ValueNotifier<MediaMetadata> metadata = ValueNotifier(MediaMetadata.initial());
+  
+  String _httpUrl = '';
 
+  void setHttpUrl(String url) {
+    _httpUrl = url;
+  }
 
   void handle(String rawJson) {
     try {
@@ -109,24 +111,62 @@ class SocketProcessor {
     batteryLevel.value = args['level'] ?? 0;
     isCharging.value = args['status'] ?? false;
     deviceName.value = args['device'] ?? "Unknown";
+  }
 
-    debugPrint("Updated: ${batteryLevel.value} - ${isCharging.value}%");
-
+  void _handleFetchArt(Map<String, dynamic> data) {
+    if (_httpUrl.isNotEmpty) {
+      Future.delayed(const Duration(seconds: 1), _fetchAlbumArt);
+    }
   }
 
   void _handleMusic(Map<String, dynamic> songInfo) {
     final args = songInfo['args'];
     
+    final newTitle = args['title'] ?? 'Unknown';
+    final oldTitle = metadata.value.title;
+
+    // Client-side dirty cache: ignore 'Unknown' if we already have a valid title
+    if (newTitle == 'Unknown' && oldTitle != 'Unknown') {
+      metadata.value = metadata.value.copyWith(
+        status: args['status'],
+        volume: args['volume'],
+        duration: args['duration'],
+        position: args['position'],
+      );
+      return;
+    }
+    
     metadata.value = metadata.value.copyWith(
-      title: args['title'],
+      title: newTitle,
       artist: args['artist'],
       album: args['album'],
-      albumArt: args['albumArt'],
       status: args['status'],
       volume: args['volume'],
       duration: args['duration'],
       position: args['position'],
     );
+    
+    // Proactively fetch album art when the song changes with a delay for browsers to load real images
+    if (newTitle != oldTitle && newTitle != 'Unknown' && _httpUrl.isNotEmpty) {
+      Future.delayed(const Duration(seconds: 1), _fetchAlbumArt);
+    }
   }
-
+  
+  Future<void> _fetchAlbumArt() async {
+    try {
+      final response = await http.get(Uri.parse('$_httpUrl/art')).timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['albumArt'] != null && data['albumArt'].toString().isNotEmpty) {
+          metadata.value = metadata.value.copyWith(albumArt: data['albumArt']);
+        } else {
+          metadata.value = metadata.value.copyWith(albumArt: "N/A");
+        }
+      } else {
+        metadata.value = metadata.value.copyWith(albumArt: "N/A");
+      }
+    } catch (e) {
+      debugPrint("Failed to fetch album art: $e");
+    }
+  }
 }
