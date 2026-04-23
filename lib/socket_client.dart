@@ -9,6 +9,11 @@ import 'services/socket_processor.dart';
 enum SocketConnectionState { disconnected, connecting, connected, reconnecting }
 
 class SocketClient extends ChangeNotifier{
+
+  // Private constructor
+  SocketClient._internal();
+  static final SocketClient instance = SocketClient._internal();
+
   // ------------------------------    Class Variables    ---------------------------------------
   Socket? _socket;
   final ValueNotifier<SocketConnectionState> connectionStatus = ValueNotifier<SocketConnectionState>(SocketConnectionState.disconnected);
@@ -34,7 +39,7 @@ class SocketClient extends ChangeNotifier{
   SocketClient();
   
   // ---------------------------     Request send template     ----------------------------------
-  Map<String, dynamic> createRequest({
+  static Map<String, dynamic> createRequest({
   required String op,
   required String action,
   Map<String, dynamic>? args,
@@ -84,7 +89,12 @@ class SocketClient extends ChangeNotifier{
       _buffer.clear();
 
       if (_pairingToken != null) {
-        sendRaw(jsonEncode({'op': 'auth', 'token': _pairingToken}));
+        // Send auth directly — sendRaw() requires connectionStatus==connected,
+        // but we're still in the 'connecting' state here.
+        final authData = utf8.encode(jsonEncode({'op': 'auth', 'token': _pairingToken}));
+        final authLength = ByteData(4)..setUint32(0, authData.length, Endian.big);
+        _socket!.add(authLength.buffer.asUint8List());
+        _socket!.add(authData);
       }
 
       bool approved = false;
@@ -221,6 +231,7 @@ class SocketClient extends ChangeNotifier{
   }
 
   void sendJson(Map<String, dynamic> data) {
+    debugPrint("sending data $data");
     sendRaw(jsonEncode(data));
   }
 }

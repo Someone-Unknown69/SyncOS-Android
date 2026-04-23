@@ -4,13 +4,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:io';
 import 'socket_client.dart';
+import 'dart:math';
 
-// -----------------------------      Get metadata from player      ----------------------------------
-
-// await NowPlaying.instance.start();
-
-
-// -------------------------------      Dashboard Widget     ---------------------------------------
+// -------------------------------      Music Widget     -------------------------------------------
 
 class MusicThemeService {
   /// Generates a Material 3 ColorScheme directly from an image.
@@ -38,9 +34,6 @@ class MusicPlayerWidget extends StatefulWidget {
   final int position;
   final int duration;
   final String status;
-  final VoidCallback onPlay;
-  final VoidCallback onNext;
-  final VoidCallback onPrev;
   final String? albumArtBase64;
   final SocketClient? client;
 
@@ -52,9 +45,6 @@ class MusicPlayerWidget extends StatefulWidget {
     required this.position,
     required this.duration,
     required this.status,
-    required this.onPlay,
-    required this.onNext,
-    required this.onPrev,
     required this.albumArtBase64,
     this.client,
   });
@@ -157,10 +147,10 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
                     gradient: LinearGradient(
                       colors: [
                         localTheme.surface.withValues(alpha: 1.0),
-                        localTheme.scrim.withValues(alpha: -0.1),
+                        localTheme.scrim.withValues(alpha: 0.0),
                       ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
                     ),
                   ),
                 ),
@@ -185,7 +175,15 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
 
                           // Play button
                         IconButton(
-                          onPressed: widget.onPlay,
+                          onPressed: () {
+                            widget.client!.sendJson(
+                              SocketClient.createRequest(
+                                op: 'music_controls',
+                                action: 'play_pause',
+                                args: {},
+                              )
+                            );
+                          },
                           icon: Icon(
                             widget.status == 'Playing' ? Icons.pause_outlined : Icons.play_arrow_outlined,
                             size: 25
@@ -204,19 +202,39 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(child: 
-                          MusicProgressSlider(
-                            theme: theme,
-                            duration: widget.duration.toDouble(),
-                            position: widget.position.toDouble(),
-                            status: widget.status,
-                            client: widget.client,
-                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(0, 0, 8, 0),
+                            child:
+                            MusicProgressSlider(
+                              theme: theme,
+                              duration: widget.duration.toDouble(),
+                              position: widget.position.toDouble(),
+                              status: widget.status,
+                              client: widget.client,
+                            ),
+                          )
                         ),
                         
                         _ControlButtons(
                           theme: localTheme,
-                          onNext: widget.onNext,
-                          onPrev: widget.onPrev,
+                          onNext: () {
+                            widget.client!.sendJson(
+                              SocketClient.createRequest(
+                                op: 'music_controls',
+                                action: 'next',
+                                args: {},
+                              )
+                            );
+                          },
+                          onPrev: () {
+                            widget.client!.sendJson(
+                              SocketClient.createRequest(
+                                op: 'music_controls',
+                                action: 'previous',
+                                args: {},
+                              )
+                            ); 
+                          },
                         ),
                       ],
                     ),
@@ -251,7 +269,7 @@ class _TrackInfo extends StatelessWidget {
           name,
           style: TextStyle(
             color: theme.onSecondaryContainer,
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
           overflow: TextOverflow.ellipsis,
@@ -312,6 +330,8 @@ class _ControlButtons extends StatelessWidget {
 }
 
 
+// ---------------------------     Progress Slider     ---------------------------------------------
+
 class MusicProgressSlider extends StatefulWidget {
   final ColorScheme theme;
   final double duration;
@@ -332,28 +352,50 @@ class MusicProgressSlider extends StatefulWidget {
   State<MusicProgressSlider> createState() => _MusicProgressSliderState();
 }
 
-class _MusicProgressSliderState extends State<MusicProgressSlider> {
+class _MusicProgressSliderState extends State<MusicProgressSlider> 
+  with TickerProviderStateMixin {
   double? _dragValue;
   late double _localPosition;
   Timer? _timer;
+
+  late AnimationController _waveController;
+  late AnimationController _flattenController;
 
   @override
   void initState() {
     super.initState();
     _localPosition = widget.position;
+    _waveController = AnimationController(vsync: this, duration: const Duration(seconds: 2));
+    _flattenController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+    if (widget.status == 'Playing') {
+      _flattenController.value = 1.0;
+      _waveController.repeat();
+    }
     _updateTimer();
   }
 
   @override
   void didUpdateWidget(MusicProgressSlider oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.position != widget.position) {
+
+    // Track changed — reset position immediately
+    if (oldWidget.duration != widget.duration) {
+      _localPosition = widget.position;
+    } else if (oldWidget.position != widget.position) {
       if ((_localPosition - widget.position).abs() > 2) {
         _localPosition = widget.position;
       }
     }
+
     if (oldWidget.status != widget.status) {
       _updateTimer();
+      if (widget.status == 'Playing') {
+        _waveController.repeat();       // restart the wave loop
+        _flattenController.forward();   // animate amplitude back up
+      } else {
+        _waveController.stop();         // freeze the wave
+        _flattenController.reverse();   // animate amplitude down to 0 (flat line)
+      }
     }
   }
 
@@ -371,50 +413,93 @@ class _MusicProgressSliderState extends State<MusicProgressSlider> {
   }
 
   @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    double progress = 0.0;
-    if(_localPosition != 0 && widget.duration != 0) {
-      progress = _localPosition / widget.duration;
-    }
-
-    return SliderTheme(
-      data: SliderTheme.of(context).copyWith(
-        trackHeight: 2.0,
-        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7.0),
-        overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
-        activeTrackColor: Theme.of(context).colorScheme.onSecondaryContainer,
-        inactiveTrackColor: Theme.of(context).colorScheme.onSecondary,
-        thumbColor: Theme.of(context).colorScheme.onSecondaryContainer,
-      ),
-      child: Slider(
-        value: (_dragValue ?? progress).clamp(0.0, 1.0),
-        min: 0.0,
-        max: 1.0,
-        onChanged: (newValue) {
-          setState(() => _dragValue = newValue);
-        },
-        onChangeEnd: (newValue) {
-          if (widget.client != null && widget.duration > 0) {
-            final targetSeconds = (newValue * widget.duration).toInt();
-            widget.client!.sendJson({
-              "op": "seek",
-              "args": {"position": targetSeconds}
-            });
-            setState(() {
-              _localPosition = targetSeconds.toDouble();
-              _dragValue = null;
-            });
-          } else {
-            setState(() => _dragValue = null);
-          }
-        },
+    double progress = widget.duration != 0 ? _localPosition / widget.duration : 0.0;
+    
+    return GestureDetector(
+      onHorizontalDragUpdate: (d) => setState(() => _dragValue = (d.localPosition.dx / context.size!.width).clamp(0.0, 1.0)),
+      onHorizontalDragEnd: (d) {
+        if (_dragValue != null && widget.client != null) {
+          widget.client!.sendJson({"op": "seek", "args": {"position": (_dragValue! * widget.duration).toInt()}});
+          setState(() => _localPosition = _dragValue! * widget.duration);
+        }
+        setState(() => _dragValue = null);
+      },
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_waveController, _flattenController]),
+        builder: (context, _) => CustomPaint(
+          size: const Size(double.infinity, 30),
+          painter: SquigglePainter(
+            progress: (_dragValue ?? progress).clamp(0.0, 1.0),
+            phase: _waveController.value * 2 * pi,
+            amplitude: _flattenController.value * 4.0,
+            color: widget.theme.onSecondaryContainer,
+          ),
+        ),
       ),
     );
   }
+
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _waveController.dispose();
+    _flattenController.dispose();
+    super.dispose();
+  }
 }
+
+
+// Modify this to change the squiggly player style
+class SquigglePainter extends CustomPainter {
+  final double progress, phase, amplitude;
+  final Color color;
+
+  SquigglePainter({required this.progress, required this.phase, required this.amplitude, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centerY = size.height / 2;
+    final thumbX = size.width * progress;
+
+    // Inactive track
+    final inactivePaint = Paint()
+      ..color = color.withValues(alpha: 0.38)
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+    if (thumbX < size.width) {
+      canvas.drawLine(Offset(thumbX, centerY), Offset(size.width, centerY), inactivePaint);
+    }
+
+    // Active track
+    if (thumbX > 0) {
+      const double waveLength = 30.0;
+      final activePaint = Paint()
+        ..color = color
+        ..strokeWidth = 3.5
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+
+      final activePath = Path();
+      activePath.moveTo(0, centerY + amplitude * sin(phase));
+      for (double x = 0.8; x <= thumbX; x += 0.8) {
+        final double y = centerY + amplitude * sin((x / waveLength) * 2 * pi + phase);
+        activePath.lineTo(x, y);
+      }
+      canvas.drawPath(activePath, activePaint);
+    }
+
+    // Thumb
+    canvas.drawCircle(
+      Offset(thumbX, centerY),
+      7.0,
+      Paint()..color = color..style = PaintingStyle.fill,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant SquigglePainter oldDelegate) => true;
+}
+
+// -----------------------------------------------------------------------------------------------------

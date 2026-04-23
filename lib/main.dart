@@ -81,7 +81,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   // Controllers / We can say variables
   final SocketClient client = SocketClient();
@@ -118,7 +118,18 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _handleConnect();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final s = client.connectionStatus.value;
+      if (s == SocketConnectionState.disconnected || s == SocketConnectionState.reconnecting) {
+        _handleConnect();
+      }
+    }
   }
 
   // Method to handle connection
@@ -141,6 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() { // Clean up memory when the app closes
+    WidgetsBinding.instance.removeObserver(this);
     client.disconnect();
     super.dispose();
   }
@@ -185,9 +197,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               position: info.position,
                               duration: info.duration,
                               status: info.status,
-                              onPlay: () => {},
-                              onPrev: () => {},
-                              onNext: () => {},
                               albumArtBase64: "", // Not used directly in base64 anymore
                               client: client, // Pass client for seek ops
                             );
