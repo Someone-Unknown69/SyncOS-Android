@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'socket_client.dart';
 import 'music_player.dart';
-import 'services/socket_processor.dart';
+import 'services/handle_request.dart';
 import 'pairing_screen.dart';
 
 // socket data processor
-final processor = SocketProcessor();
+final processor = HandleRequest();
 
 class DashboardItem {
   final String label;
@@ -73,7 +73,7 @@ class RemoteControllerApp extends StatelessWidget {
   }
 }
 
-// The "Stateful" Page (Where logic lives)
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -153,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void dispose() { // Clean up memory when the app closes
     WidgetsBinding.instance.removeObserver(this);
-    client.disconnect();
+    client.handleDisconnect();
     super.dispose();
   }
 
@@ -372,7 +372,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               children: [
                 // disconnect button
                 FilledButton.icon(
-                  onPressed: () => client.disconnect(),
+                  onPressed: () => client.handleDisconnect(),
                   icon: const Icon(Icons.power_off),
                   label: const Text("Disconnect"),
                   style: FilledButton.styleFrom(
@@ -389,7 +389,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
                 // Ping button
                 FilledButton.icon(
-                  onPressed: () => client.sendRaw('PING'),
+                  onPressed: () => client.send("PING", "", {}),
                   icon: const Icon(Icons.network_ping_rounded),
                   label: const Text("Ping"),
                   style: FilledButton.styleFrom(

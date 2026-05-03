@@ -176,12 +176,10 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
                           // Play button
                         IconButton(
                           onPressed: () {
-                            widget.client!.sendJson(
-                              SocketClient.createRequest(
-                                op: 'music_controls',
-                                action: 'play_pause',
-                                args: {},
-                              )
+                            widget.client!.send(
+                              'music_controls',
+                              'play_pause',
+                              {},
                             );
                           },
                           icon: Icon(
@@ -218,21 +216,17 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
                         _ControlButtons(
                           theme: localTheme,
                           onNext: () {
-                            widget.client!.sendJson(
-                              SocketClient.createRequest(
-                                op: 'music_controls',
-                                action: 'next',
-                                args: {},
-                              )
+                            widget.client!.send(
+                                'music_controls',
+                                'next',
+                                {},
                             );
                           },
                           onPrev: () {
-                            widget.client!.sendJson(
-                              SocketClient.createRequest(
-                                op: 'music_controls',
-                                action: 'previous',
-                                args: {},
-                              )
+                            widget.client!.send(
+                                'music_controls',
+                                'previous',
+                                {},
                             ); 
                           },
                         ),
@@ -420,7 +414,13 @@ class _MusicProgressSliderState extends State<MusicProgressSlider>
       onHorizontalDragUpdate: (d) => setState(() => _dragValue = (d.localPosition.dx / context.size!.width).clamp(0.0, 1.0)),
       onHorizontalDragEnd: (d) {
         if (_dragValue != null && widget.client != null) {
-          widget.client!.sendJson({"op": "seek", "args": {"position": (_dragValue! * widget.duration).toInt()}});
+          
+          widget.client!.send(
+            "music_controls", 
+            "seek", 
+            {"position": (_dragValue! * widget.duration).toInt()}
+          );
+
           setState(() => _localPosition = _dragValue! * widget.duration);
         }
         setState(() => _dragValue = null);

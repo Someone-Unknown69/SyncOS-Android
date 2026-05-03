@@ -62,10 +62,10 @@ class MediaMetadata {
 }
 
 
-class SocketProcessor {
-  static final SocketProcessor _instance = SocketProcessor._internal();
-  factory SocketProcessor() => _instance;
-  SocketProcessor._internal() {
+class HandleRequest {
+  static final HandleRequest _instance = HandleRequest._internal();
+  factory HandleRequest() => _instance;
+  HandleRequest._internal() {
     _handlers = {
       "battery_info": _handleBattery,
       "music": _handleMusic,

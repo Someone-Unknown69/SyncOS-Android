@@ -4,12 +4,14 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'services/socket_processor.dart';
+import 'services/handle_request.dart';
+import 'services/music.dart';
 
 enum SocketConnectionState { disconnected, connecting, connected, reconnecting }
 
-class SocketClient extends ChangeNotifier{
+// ------------------------------     Socket Class     -------------------------------------------------
 
+class SocketClient extends ChangeNotifier{
   // Private constructor
   SocketClient._internal();
   static final SocketClient instance = SocketClient._internal();
@@ -19,16 +21,12 @@ class SocketClient extends ChangeNotifier{
   final ValueNotifier<SocketConnectionState> connectionStatus = ValueNotifier<SocketConnectionState>(SocketConnectionState.disconnected);
   final _messageController = StreamController<Map<String, dynamic>>.broadcast();
   StreamSubscription? _subscription;
-  
-  // socket data processor
-  final processor = SocketProcessor();
-  
   final BytesBuilder _buffer = BytesBuilder();
 
-  // Connection config
+  //  Http Connection config
   String? _host;
   int? _port;
-  // String? _httpHost; // to pass to processor if needed, but processor gets it from us
+  // String? _httpHost; // to pass to requestHandler if needed, but requestHandler gets it from us
   
   Timer? _heartbeatTimer;
   Timer? _pongTimeoutTimer;
@@ -37,22 +35,13 @@ class SocketClient extends ChangeNotifier{
 
   // Defining where to connect the socket
   SocketClient();
-  
-  // ---------------------------     Request send template     ----------------------------------
-  static Map<String, dynamic> createRequest({
-  required String op,
-  required String action,
-  Map<String, dynamic>? args,
-  }) {
-    return {
-      "op": op,           
-      "action": action,   
-      "args": {},         
-      "id": DateTime.now().millisecondsSinceEpoch, 
-    };
-  }
 
-  // ----------------------------    Device Information    --------------------------------------
+  // --------------------------------     Services       ----------------------------------------
+  final requestHandler = HandleRequest();
+  final music = MusicTester();
+  // battery monitoring of andorid and music data for android along with http service
+
+  // ----------------------------    Connection Information    --------------------------------------
   final ValueNotifier<bool> isCharging = ValueNotifier<bool>(false);
 
   // ---------------------------------    Getters    -------------------------------------------- 
@@ -62,13 +51,14 @@ class SocketClient extends ChangeNotifier{
 
   String? _pairingToken;
 
+  // connect to the server with token
   Future<void> connect(String host, int port, {int? httpPort, String? token}) async {
     if (connectionStatus.value == SocketConnectionState.connected || connectionStatus.value == SocketConnectionState.connecting) return;
 
     _host = host;
     _port = port;
     if (httpPort != null) {
-      processor.setHttpUrl('http://$host:$httpPort');
+      requestHandler.setHttpUrl('http://$host:$httpPort');
     }
     
     if (token != null) {
@@ -76,6 +66,7 @@ class SocketClient extends ChangeNotifier{
     }
 
     _attemptConnection();
+    music.startListening();
   }
   
   Future<void> _attemptConnection() async {
@@ -99,6 +90,7 @@ class SocketClient extends ChangeNotifier{
 
       bool approved = false;
 
+      // Listening to incoming messages
       _subscription = _socket!.listen(
         (List<int> data) {
           _buffer.add(data);
@@ -149,19 +141,6 @@ class SocketClient extends ChangeNotifier{
       _triggerReconnect();
     }
   }
-  
-  void _handleMessage(String rawJson) {
-    if (rawJson == 'PONG') {
-      _pongTimeoutTimer?.cancel();
-      return;
-    }
-    
-    try {
-      processor.handle(rawJson);
-    } catch (e) {
-      debugPrint('Data processing error: $e');
-    }
-  }
 
   void _triggerReconnect() {
     _cleanupConnection();
@@ -186,18 +165,27 @@ class SocketClient extends ChangeNotifier{
   
   void _startHeartbeat() {
     _heartbeatTimer?.cancel();
-    _heartbeatTimer = Timer.periodic(const Duration(seconds: 20), (timer) {
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (connectionStatus.value == SocketConnectionState.connected) {
-        sendRaw('PING');
+        _sendRaw('PING');
         _pongTimeoutTimer?.cancel();
-        _pongTimeoutTimer = Timer(const Duration(seconds: 5), () {
+        _pongTimeoutTimer = Timer(const Duration(seconds: 15), () {
           debugPrint("Heartbeat timeout. Connection dead.");
           _triggerReconnect();
         });
       }
     });
   }
-  
+
+  // Method to disconnect manually
+  void handleDisconnect() {
+    _isReconnecting = false;
+    _host = null;
+    _port = null;
+    _cleanupConnection();
+    connectionStatus.value = SocketConnectionState.disconnected;
+  }
+
   void _cleanupConnection() {
     _heartbeatTimer?.cancel();
     _pongTimeoutTimer?.cancel();
@@ -207,17 +195,24 @@ class SocketClient extends ChangeNotifier{
     _socket = null;
   }
 
-  // Method to disconnect manually
-  void disconnect() {
-    _isReconnecting = false;
-    _host = null;
-    _port = null;
-    _cleanupConnection();
-    connectionStatus.value = SocketConnectionState.disconnected;
+  
+
+  // handling incoming commands
+  void _handleMessage(String rawJson) {
+    if (rawJson == 'PONG') {
+      _pongTimeoutTimer?.cancel();
+      return;
+    }
+    
+    try {
+      requestHandler.handle(rawJson);
+    } catch (e) {
+      debugPrint('Data processing error: $e');
+    }
   }
 
   // Method to send raw string over socket
-  void sendRaw(String str) {
+  void _sendRaw(String str) {
     if (connectionStatus.value == SocketConnectionState.connected && _socket != null) {
       try {
         final jsonData = utf8.encode(str);
@@ -230,8 +225,32 @@ class SocketClient extends ChangeNotifier{
     }
   }
 
-  void sendJson(Map<String, dynamic> data) {
-    debugPrint("sending data $data");
-    sendRaw(jsonEncode(data));
+  // sending commands
+  void send(String op, String action, Map<String, dynamic> args) {
+    // if (op == 'albumArt_internal') {
+    //   _httpServer?.updateAlbumArt(args['albumArt'] ?? '');
+    //   return; // Do not send over socket
+    // }
+
+    if (_socket == null) return;
+
+    try {
+      final request = {
+        "op": op,
+        "action": action,
+        "args": args,
+        "id": DateTime.now().millisecondsSinceEpoch,
+      };
+
+      final jsonData = utf8.encode(jsonEncode(request));
+      final lengthBytes = ByteData(4)..setUint32(0, jsonData.length, Endian.big);
+      
+      _socket!.add(lengthBytes.buffer.asUint8List());
+      _socket!.add(jsonData);
+    } catch (e) {
+      debugPrint('Send error: $e');
+      handleDisconnect();
+    }
   }
+
 }
