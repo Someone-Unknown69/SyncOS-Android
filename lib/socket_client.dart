@@ -38,7 +38,7 @@ class SocketClient extends ChangeNotifier{
 
   // --------------------------------     Services       ----------------------------------------
   final requestHandler = HandleRequest();
-  final music = MediaSubscription();
+  final music = MediaPoller();
   // battery monitoring of andorid and music data for android along with http service
 
   // ----------------------------    Connection Information    --------------------------------------
@@ -66,7 +66,7 @@ class SocketClient extends ChangeNotifier{
     }
 
     _attemptConnection();
-    music.startListening();
+    music.startListening(onSend: send);
   }
   
   Future<void> _attemptConnection() async {
@@ -77,10 +77,11 @@ class SocketClient extends ChangeNotifier{
     try {
       debugPrint('Connecting to $_host:$_port...');
       _socket = await Socket.connect(_host, _port!, timeout: const Duration(seconds: 5));
+      _socket!.setOption(SocketOption.tcpNoDelay, true);
       _buffer.clear();
 
       if (_pairingToken != null) {
-        // Send auth directly — sendRaw() requires connectionStatus==connected,
+        // Send auth directly, sendRaw() requires connectionStatus==connected,
         // but we're still in the 'connecting' state here.
         final authData = utf8.encode(jsonEncode({'op': 'auth', 'token': _pairingToken}));
         final authLength = ByteData(4)..setUint32(0, authData.length, Endian.big);
@@ -227,11 +228,6 @@ class SocketClient extends ChangeNotifier{
 
   // sending commands
   void send(String op, String action, Map<String, dynamic> args) {
-    // if (op == 'albumArt_internal') {
-    //   _httpServer?.updateAlbumArt(args['albumArt'] ?? '');
-    //   return; // Do not send over socket
-    // }
-
     if (_socket == null) return;
 
     try {

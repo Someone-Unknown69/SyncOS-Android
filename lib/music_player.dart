@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'dart:io';
 import 'socket_client.dart';
 import 'dart:math';
+import 'main.dart'; // To access the global processor
 
 // -------------------------------      Music Widget     -------------------------------------------
 
@@ -176,10 +177,12 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
                           // Play button
                         IconButton(
                           onPressed: () {
+                            final newStatus = widget.status == 'Playing' ? 'Paused' : 'Playing';
+                            processor.updateStatus(newStatus);
                             widget.client!.send(
-                              'music_controls',
-                              'play_pause',
-                              {},
+                              'music',
+                              'control',
+                              {'method' : 'play_pause'},
                             );
                           },
                           icon: Icon(
@@ -217,16 +220,16 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
                           theme: localTheme,
                           onNext: () {
                             widget.client!.send(
-                                'music_controls',
-                                'next',
-                                {},
+                                'music',
+                                'control',
+                                {'method' : 'next'},
                             );
                           },
                           onPrev: () {
                             widget.client!.send(
-                                'music_controls',
-                                'previous',
-                                {},
+                                'music',
+                                'control',
+                                {'method' : 'previous'},
                             ); 
                           },
                         ),
@@ -416,9 +419,12 @@ class _MusicProgressSliderState extends State<MusicProgressSlider>
         if (_dragValue != null && widget.client != null) {
           
           widget.client!.send(
-            "music_controls", 
-            "seek", 
-            {"position": (_dragValue! * widget.duration).toInt()}
+            "music", 
+            "control", 
+            {
+              "method" : 'seek',
+              "position": (_dragValue! * widget.duration).toInt(),
+            }
           );
 
           setState(() => _localPosition = _dragValue! * widget.duration);

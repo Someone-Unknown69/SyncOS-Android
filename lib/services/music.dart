@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 
-
 class MediaInfo {
   final String title;
   final String artist;
@@ -23,10 +22,13 @@ class MediaInfo {
   });
 
   Map<String, dynamic> toMap() => {
-    'title': title, 'artist': artist, 'album': album,
-    'status': status, 'position': position,
-    'duration': duration, 'volume': volume,
-    'albumArt': albumArtBase64,
+    'title': title, 
+    'artist': artist, 
+    'album': album,
+    'status': status ? 'Playing' : 'Paused', 
+    'position': position,
+    'duration': duration, 
+    'volume': volume,
   };
 }
 
@@ -47,7 +49,7 @@ class _MusicInfoCache {
 }
 
 
-class MediaSubscription {
+class MediaPoller {
   static const MethodChannel _methodChannel = MethodChannel('com.example.music_detection');
   static const EventChannel _eventChannel = EventChannel('com.example.music_detection/events');
 
@@ -82,6 +84,8 @@ class MediaSubscription {
   final _MusicInfoCache _cache = _MusicInfoCache();
   StreamSubscription? _musicSubscription;
   void Function(MediaInfo)? onMediaUpdate;
+  String _lastSentTitle = "";
+  String _lastSentArtist = "";
 
   bool _isMusicApp(String? packageName) {
     if (packageName == null) return false;
@@ -106,8 +110,8 @@ class MediaSubscription {
         ? lastPosition + (nowTime - _cache.lastSentTime)
         : lastPosition;
         
-    // If the difference is greater than 3 seconds (3000ms), it's a manual seek/jump
-    final seeked = (nowPosition - expectedPosition).abs() > 3000;
+    // If the difference is greater than 1 second (1000ms), it's a manual seek/jump
+    final seeked = (nowPosition - expectedPosition).abs() > 1000;
     final playStateChanged = lastIsPlaying != nowPlaying;
 
     return _cache.lastSent['title'] != info['title'] ||
@@ -119,7 +123,8 @@ class MediaSubscription {
         playStateChanged;
   }
 
-  void startListening({void Function(MediaInfo)? onUpdate}) async {
+  // for permissions
+  void startListening({void Function(MediaInfo)? onUpdate, required void Function(String op, String action, Map<String, dynamic> args) onSend}) async {
     onMediaUpdate = onUpdate;
     debugPrint("starting subscription");
 
@@ -135,13 +140,41 @@ class MediaSubscription {
         debugPrint("Notification listener access is enabled");
       }
 
-      _startSubscription();
+      _startSubscription(onSend);
     } catch (e) {
       debugPrint('we cooked : $e');
     }
   }
 
-  void _processRawEvent(Map<String, dynamic> info) {
+  // starting the music subscription
+  void _startSubscription(void Function(String op, String action, Map<String, dynamic> args) onSend) {
+    _musicSubscription?.cancel();
+
+    // Poll current state once immediately on startup
+    _methodChannel.invokeMethod('getCurrentMusicInfo').then((result) {
+      if (result != null) {
+        final info = Map<String, dynamic>.from(result as Map);
+        _updateMetadata(info, onSend);
+      }
+    }).catchError((e) { debugPrint('getCurrentMusicInfo error: $e'); });
+
+    _musicSubscription = _eventChannel.receiveBroadcastStream().listen(
+      (dynamic event) {
+        try {
+          final Map<dynamic, dynamic>? raw = event as Map<dynamic, dynamic>?;
+          if (raw == null) return;
+          _updateMetadata(Map<String, dynamic>.from(raw), onSend);
+        } catch (e) {
+          debugPrint("error in subscription handler: $e");
+        }
+      },
+      onError: (error) => debugPrint('Event channel error: $error'),
+      onDone: () => debugPrint('Event channel stream closed'),
+    );
+  }
+
+  // this updates and changes metadata
+  void _updateMetadata(Map<String, dynamic> info, void Function(String op, String action, Map<String, dynamic> args) onSend) {
     final packageName = info['packageName'] as String?;
     if (!_isMusicApp(packageName)) return;
     
@@ -175,34 +208,60 @@ class MediaSubscription {
       debugPrint('Playback paused or stopped');
     }
 
+    // send updated metadata to server
+    final map = metadata.toMap();
+    
+    // Only include the heavy album art in the socket message if the song has actually changed
+    // AND we haven't successfully sent art for this song yet.
+    if (metadata.title != _lastSentTitle || metadata.artist != _lastSentArtist) {
+      if (metadata.albumArtBase64 != 'N/A') {
+        map['albumArt'] = metadata.albumArtBase64;
+        _lastSentTitle = metadata.title;
+        _lastSentArtist = metadata.artist;
+      }
+    }
+
+    onSend('music', 'update_metadata', map);
+
     onMediaUpdate?.call(metadata);
   }
 
-  void _startSubscription() {
-    _musicSubscription?.cancel();
-
-    // Poll current state once immediately on startup
-    _methodChannel.invokeMethod('getCurrentMusicInfo').then((result) {
-      if (result != null) {
-        final info = Map<String, dynamic>.from(result as Map);
-        _processRawEvent(info);
-      }
-    }).catchError((e) { debugPrint('getCurrentMusicInfo error: $e'); });
-
-    _musicSubscription = _eventChannel.receiveBroadcastStream().listen(
-      (dynamic event) {
-        try {
-          final Map<dynamic, dynamic>? raw = event as Map<dynamic, dynamic>?;
-          if (raw == null) return;
-          _processRawEvent(Map<String, dynamic>.from(raw));
-        } catch (e) {
-          debugPrint("error in subscription handler: $e");
-        }
-      },
-      onError: (error) => debugPrint('Event channel error: $error'),
-      onDone: () => debugPrint('Event channel stream closed'),
-    );
+  void control(Map<String, dynamic> args) {
+    _control(args);
   }
+
+
+  Future<void> _control(Map<String, dynamic> args) async {
+    try {
+      String method = '';
+      if (args['method'] == 'next') {
+        method = 'next';
+      } else if (args['method'] == 'previous') {
+        method = 'previous';
+      } else if (args['method'] == 'play_pause') {
+        method = 'playPause';
+      } else if (args['method'] == 'seek') {
+        await seek(args['position']);
+        return;
+      }
+
+      await _methodChannel.invokeMethod(method);
+      debugPrint("Sent $method command");
+    } catch (e) {
+      debugPrint("Failed to send ${args['method']}: $e");
+    }
+  }
+
+  Future<void> seek(int positionSeconds) async {
+    try {
+      final positionMs = positionSeconds * 1000;
+      await _methodChannel.invokeMethod('seek', {'position': positionMs});
+      debugPrint("Seeked to $positionSeconds seconds");
+    } catch (e) {
+      debugPrint("Failed to seek: $e");
+    }
+  }
+
 
   void stopMusicSubscription() {
     debugPrint('Music subscription stopping');

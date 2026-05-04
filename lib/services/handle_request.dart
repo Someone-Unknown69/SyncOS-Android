@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'music.dart';
+import '../socket_client.dart';
 
 // Metadata class
 class MediaMetadata {
@@ -75,6 +77,7 @@ class HandleRequest {
 
   // Map of op to the handler functions
   late final Map<String, Function(Map<String, dynamic>)> _handlers;
+  MediaPoller? _mediaPoller;
 
   /// Device Information
   final ValueNotifier<int> batteryLevel = ValueNotifier<int>(0);
@@ -84,13 +87,20 @@ class HandleRequest {
   final ValueNotifier<MediaMetadata> metadata = ValueNotifier(MediaMetadata.initial());
   
   String _httpUrl = '';
+  String get httpUrl => _httpUrl;
 
   void setHttpUrl(String url) {
     _httpUrl = url;
   }
 
+  // Optimistic update for UI responsiveness
+  void updateStatus(String newStatus) {
+    metadata.value = metadata.value.copyWith(status: newStatus);
+  }
+
   void handle(String rawJson) {
     try {
+      debugPrint('Command recieved $rawJson');
       final data = jsonDecode(rawJson);
       final op = data['op'];
 
@@ -115,58 +125,85 @@ class HandleRequest {
 
   void _handleFetchArt(Map<String, dynamic> data) {
     if (_httpUrl.isNotEmpty) {
-      Future.delayed(const Duration(seconds: 1), _fetchAlbumArt);
+      _fetchAlbumArt(); // Fetch immediately
     }
   }
 
-  void _handleMusic(Map<String, dynamic> songInfo) {
-    final args = songInfo['args'];
+  void _handleMusic(Map<String, dynamic> data) {
+    final action = data['action'];
+    final args = data['args'];
     
-    final newTitle = args['title'] ?? 'Unknown';
-    final oldTitle = metadata.value.title;
+    if(action == 'update_metadata') {
+      debugPrint("Updated metadata recieved : $args");
 
-    // Client-side dirty cache: ignore 'Unknown' if we already have a valid title
-    if (newTitle == 'Unknown' && oldTitle != 'Unknown') {
+      final newTitle = args['title'] ?? 'Unknown';
+      final oldTitle = metadata.value.title;
+
+      // Dirty cache
+      if (newTitle == 'Unknown' && oldTitle != 'Unknown') {
+        metadata.value = metadata.value.copyWith(
+          status: args['status'],
+          volume: args['volume'],
+          duration: args['duration'],
+          position: args['position'],
+          albumArt: args['albumArt'] ?? metadata.value.albumArt,
+        );
+        return;
+      }
+      
       metadata.value = metadata.value.copyWith(
+        title: newTitle,
+        artist: args['artist'],
+        album: args['album'],
         status: args['status'],
         volume: args['volume'],
         duration: args['duration'],
         position: args['position'],
+        albumArt: args['albumArt'] ?? metadata.value.albumArt,
       );
-      return;
-    }
-    
-    metadata.value = metadata.value.copyWith(
-      title: newTitle,
-      artist: args['artist'],
-      album: args['album'],
-      status: args['status'],
-      volume: args['volume'],
-      duration: args['duration'],
-      position: args['position'],
-    );
-    
-    // Proactively fetch album art when the song changes with a delay for browsers to load real images
-    if (newTitle != oldTitle && newTitle != 'Unknown' && _httpUrl.isNotEmpty) {
-      Future.delayed(const Duration(seconds: 1), _fetchAlbumArt);
+      
+      // Proactively fetch album art when the song changes
+      if (newTitle != oldTitle && newTitle != 'Unknown' && _httpUrl.isNotEmpty) {
+        _fetchAlbumArt(); // Fetch immediately
+      }
+    } else if (action == 'control') {
+      _mediaPoller ??= SocketClient.instance.music;
+
+      if (_mediaPoller != null) {
+        _mediaPoller!.control(args);
+      } else {
+        debugPrint('Error: MediaPoller not set in HandleRequest');
+      }
     }
   }
   
-  Future<void> _fetchAlbumArt() async {
+  Future<void> _fetchAlbumArt({int retryCount = 0}) async {
     try {
-      final response = await http.get(Uri.parse('$_httpUrl/art')).timeout(const Duration(seconds: 5));
+      final response = await http.get(Uri.parse('$_httpUrl/art')).timeout(const Duration(seconds: 3));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['albumArt'] != null && data['albumArt'].toString().isNotEmpty) {
           metadata.value = metadata.value.copyWith(albumArt: data['albumArt']);
-        } else {
-          metadata.value = metadata.value.copyWith(albumArt: "N/A");
+          return; // Success!
         }
-      } else {
-        metadata.value = metadata.value.copyWith(albumArt: "N/A");
+      }
+
+      // Retry up to 3 times with a short 200ms delay if art isn't ready
+      if (retryCount < 3) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        return _fetchAlbumArt(retryCount: retryCount + 1);
       }
     } catch (e) {
+      if (retryCount < 3) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        return _fetchAlbumArt(retryCount: retryCount + 1);
+      }
       debugPrint("Failed to fetch album art: $e");
+    }
+
+    // Final fallback
+    if (retryCount >= 3) {
+      metadata.value = metadata.value.copyWith(albumArt: "N/A");
     }
   }
 }

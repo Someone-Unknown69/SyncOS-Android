@@ -84,7 +84,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   // Controllers / We can say variables
-  final SocketClient client = SocketClient();
+  final SocketClient client = SocketClient.instance;
 
   // Customization for UI
   static const double _borderRadius = 20;       // Can be used to change border radius

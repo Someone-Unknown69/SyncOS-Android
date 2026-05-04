@@ -23,6 +23,10 @@ class MusicDetectionHandler(private val context: Context) {
     private var mediaSessionManager: MediaSessionManager? = null
     private var eventSink: EventChannel.EventSink? = null
     private val registeredCallbacks = mutableMapOf<MediaController, MediaController.Callback>()
+    
+    // Cache to prevent redundant image encoding
+    private var cachedAlbumArt: String? = null
+    private var cachedMetadataId: String? = null
 
     companion object {
         private var instance: MusicDetectionHandler? = null
@@ -50,6 +54,23 @@ class MusicDetectionHandler(private val context: Context) {
                 }
                 "openNotificationSettings" -> {
                     openNotificationSettings()
+                    result.success(true)
+                }
+                "playPause" -> {
+                    sendMediaCommand("playPause")
+                    result.success(true)
+                }
+                "next" -> {
+                    sendMediaCommand("next")
+                    result.success(true)
+                }
+                "previous" -> {
+                    sendMediaCommand("previous")
+                    result.success(true)
+                }
+                "seek" -> {
+                    val position = call.argument<Number>("position")?.toLong() ?: 0L
+                    sendMediaCommand("seek", position)
                     result.success(true)
                 }
                 else -> result.notImplemented()
@@ -80,6 +101,15 @@ class MusicDetectionHandler(private val context: Context) {
     }
 
     private fun getAlbumArtBase64(metadata: MediaMetadata): String? {
+        val title = metadata.getString(MediaMetadata.METADATA_KEY_TITLE) ?: "Unknown"
+        val artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: "Unknown"
+        val currentId = "$title-$artist"
+
+        // Return cached art if it's the same song
+        if (currentId == cachedMetadataId) {
+            return cachedAlbumArt
+        }
+
         try {
             val bitmap = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
                 ?: metadata.getBitmap(MediaMetadata.METADATA_KEY_ART)
@@ -88,12 +118,18 @@ class MusicDetectionHandler(private val context: Context) {
                 val baos = ByteArrayOutputStream()
                 val scale = Math.min(300f / bitmap.width, 300f / bitmap.height)
                 val scaled = if (scale < 1) Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true) else bitmap
-                scaled.compress(Bitmap.CompressFormat.JPEG, 80, baos)
-                return Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
+                scaled.compress(Bitmap.CompressFormat.JPEG, 70, baos) // Slightly lower quality for much faster speed
+                val encoded = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
+                
+                // Update cache
+                cachedMetadataId = currentId
+                cachedAlbumArt = encoded
+                return encoded
             }
         } catch (e: Exception) {
             Log.e("MusicDetection", "Error encoding album art: ${e.message}")
         }
+        
         return null
     }
 
@@ -145,6 +181,35 @@ class MusicDetectionHandler(private val context: Context) {
         val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
+    }
+
+    private fun sendMediaCommand(command: String, position: Long = 0L) {
+        if (!isNotificationListenerEnabled() || mediaSessionManager == null) return
+        try {
+            val componentName = ComponentName(context, MusicNotificationListenerService::class.java)
+            val controllers = mediaSessionManager!!.getActiveSessions(componentName)
+            if (controllers.isNotEmpty()) {
+                var targetController = controllers.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
+                if (targetController == null) {
+                    targetController = controllers.first()
+                }
+
+                when (command) {
+                    "playPause" -> {
+                        if (targetController.playbackState?.state == PlaybackState.STATE_PLAYING) {
+                            targetController.transportControls.pause()
+                        } else {
+                            targetController.transportControls.play()
+                        }
+                    }
+                    "next" -> targetController.transportControls.skipToNext()
+                    "previous" -> targetController.transportControls.skipToPrevious()
+                    "seek" -> targetController.transportControls.seekTo(position)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MusicDetection", "Error sending media command: ${e.message}")
+        }
     }
 
     private fun getCurrentMusicInfo(): Map<String, Any?> {
