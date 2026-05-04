@@ -501,3 +501,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 }
 
+// Permisson handling class for notifications
+class PermissonHandler {
+  
+}

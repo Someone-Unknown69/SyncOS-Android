@@ -38,7 +38,7 @@ class SocketClient extends ChangeNotifier{
 
   // --------------------------------     Services       ----------------------------------------
   final requestHandler = HandleRequest();
-  final music = MusicTester();
+  final music = MediaSubscription();
   // battery monitoring of andorid and music data for android along with http service
 
   // ----------------------------    Connection Information    --------------------------------------

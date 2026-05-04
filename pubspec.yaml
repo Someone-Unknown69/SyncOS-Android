@@ -37,7 +37,6 @@ dependencies:
   cupertino_icons: ^1.0.8
   
   palette_generator_master: ^1.0.1
-  nowplaying: ^3.0.3
   http: ^1.6.0
   mobile_scanner: ^7.2.0
   shared_preferences: ^2.5.5
