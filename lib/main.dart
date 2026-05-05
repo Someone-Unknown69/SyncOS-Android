@@ -137,11 +137,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final prefs = await SharedPreferences.getInstance();
     final ip = prefs.getString('server_ip');
     final port = prefs.getInt('server_port');
-    final httpPort = prefs.getInt('server_http_port');
     final token = prefs.getString('pairing_token');
-    
     if (ip != null && port != null) {
-      await client.connect(ip, port, httpPort: httpPort, token: token);
+      await client.connect(ip, port, token: token);
     } else {
       // Data missing, reset to Pairing
       if (mounted) {

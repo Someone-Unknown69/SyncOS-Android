@@ -132,7 +132,7 @@ class HandleRequest {
   void _handleMusic(Map<String, dynamic> data) {
     final action = data['action'];
     final args = data['args'];
-    
+
     if(action == 'update_metadata') {
       debugPrint("Updated metadata recieved : $args");
 

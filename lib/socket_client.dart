@@ -52,14 +52,11 @@ class SocketClient extends ChangeNotifier{
   String? _pairingToken;
 
   // connect to the server with token
-  Future<void> connect(String host, int port, {int? httpPort, String? token}) async {
+  Future<void> connect(String host, int port, {String? token}) async {
     if (connectionStatus.value == SocketConnectionState.connected || connectionStatus.value == SocketConnectionState.connecting) return;
 
     _host = host;
     _port = port;
-    if (httpPort != null) {
-      requestHandler.setHttpUrl('http://$host:$httpPort');
-    }
     
     if (token != null) {
       _pairingToken = token;
