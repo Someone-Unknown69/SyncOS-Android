@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 
+@immutable
 class MediaInfo {
   final String title;
   final String artist;
@@ -9,17 +10,29 @@ class MediaInfo {
   final bool status;
   final int position;
   final int duration;
-  final double volume;
   final String albumArtBase64;
 
-  bool get isValid => title != 'Unknown' && title.isNotEmpty;
-
-  MediaInfo({
-    required this.title, required this.artist, required this.album,
-    required this.status, required this.position,
-    required this.duration, required this.volume,
+  const MediaInfo({
+    required this.title, 
+    required this.artist, 
+    required this.album,
+    required this.status, 
+    required this.position,
+    required this.duration, 
     required this.albumArtBase64,
   });
+
+  static const empty = MediaInfo(
+    title: '',
+    artist: '',
+    album: '',
+    status: false,
+    position: 0,
+    duration: 0,
+    albumArtBase64: '',
+  );
+
+  bool get isValid => title != 'Unknown' && title.isNotEmpty;
 
   Map<String, dynamic> toMap() => {
     'title': title, 
@@ -28,7 +41,6 @@ class MediaInfo {
     'status': status ? 'Playing' : 'Paused', 
     'position': position,
     'duration': duration, 
-    'volume': volume,
   };
 }
 
@@ -197,7 +209,6 @@ class MediaPoller {
       artist: artist,
       duration: duration,
       position: ((info['currentPosition'] as int?) ?? 0) ~/ 1000,
-      volume: 0.0,
       albumArtBase64: info['albumArtBase64'] as String? ?? 'N/A',
     );
 

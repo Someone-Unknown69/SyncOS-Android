@@ -72,25 +72,6 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
     }
   }
 
-  Uint8List? _decodeBase64Image(String? base64Str) {
-    if (base64Str == null || base64Str == 'N/A' || base64Str.length < 50) return null;
-    try {
-      String cleanBase64 = base64Str.replaceAll(RegExp(r'\s+'), '');
-      int pad = cleanBase64.length % 4;
-      if (pad > 0) {
-        cleanBase64 += '=' * (4 - pad);
-      }
-      Uint8List bytes = base64Decode(cleanBase64);
-      try {
-        bytes = Uint8List.fromList(gzip.decode(bytes));
-      } catch (_) {}
-      return bytes;
-    } catch (e) {
-      debugPrint("Error decoding base64 image: $e");
-      return null;
-    }
-  }
-
   Future<void> _updateTheme() async {
     ImageProvider provider;
     if (widget.imagePath != 'N/A' && widget.imagePath.length > 50) {
