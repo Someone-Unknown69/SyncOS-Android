@@ -226,6 +226,7 @@ class SocketClient extends ChangeNotifier{
   // sending commands
   void send(String op, String action, Map<String, dynamic> args) {
     if (_socket == null) return;
+    debugPrint("[Socket] Sending '$op' via $_host");
 
     try {
       final request = {

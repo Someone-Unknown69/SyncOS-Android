@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:io';
-import 'socket_client.dart';
+import '../socket_client.dart';
 import 'dart:math';
-import 'main.dart'; // To access the global processor
+import '../main.dart'; // To access the global processor
 
 // -------------------------------      Music Widget     -------------------------------------------
 
@@ -119,13 +119,13 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
         final localTheme = Theme.of(context).colorScheme;
 
         return Container(
-          margin: const EdgeInsets.all(5),
+          margin: const EdgeInsets.all(AppTheme.spacing / 2),
           height: 200,
           clipBehavior: Clip.antiAlias,
 
           decoration: BoxDecoration(
             color: localTheme.surfaceContainer,
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(AppTheme.musicPlayerRadius),
           ),
           
           child: Stack(

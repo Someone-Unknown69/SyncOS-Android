@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'socket_client.dart';
-import 'music_player.dart';
+import 'dashboard/music_player.dart';
 import 'services/handle_request.dart';
 import 'pairing_screen.dart';
+import 'dashboard/controller_page.dart';
+
 
 // socket data processor
 final processor = HandleRequest();
@@ -20,6 +22,24 @@ class DashboardItem {
   });
 }
 
+// Universal Theme Constants
+class AppTheme {
+  // Colors
+  static const Color seedColor = Colors.blue;
+  static const Color errorColor = Colors.red;
+  static const Color successColor = Colors.green;
+  static const Color warningColor = Colors.orange;
+
+  // Layout
+  static const double borderRadius = 20;
+  static const double padding = 16;
+  static const double spacing = 12;
+
+  // Music Player Specific
+  static const double musicPlayerRadius = 28;
+}
+
+
 // The Entry Point
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,7 +54,7 @@ ThemeData _buildTheme(Brightness brightness) {
   final baseTheme = ThemeData(
     useMaterial3: true,
     brightness: brightness,
-    colorSchemeSeed: Colors.blue,
+    colorSchemeSeed: AppTheme.seedColor,
   );
 
   return baseTheme.copyWith(
@@ -86,10 +106,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // Controllers / We can say variables
   final SocketClient client = SocketClient.instance;
 
-  // Customization for UI
-  static const double _borderRadius = 20;       // Can be used to change border radius
-  static const double _padding = 16;            // Self explanatory
-  static const double _spacing = 12;            // Spacing between widgets
+  // Customization for UI (Now using centralized AppTheme)
+  static const double _borderRadius = AppTheme.borderRadius;
+  static const double _padding = AppTheme.padding;
+  static const double _spacing = AppTheme.spacing;
 
   // Dashboard Items
   late final List<DashboardItem> _items = [
@@ -111,7 +131,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     DashboardItem(
       label: 'Gamepad',
       icon: Icons.gamepad,
-      onTap: () => (),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const ControllerPage()),
+      ),
     ),
   ];
 
@@ -284,9 +307,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
+            Text(
               "Disconnected",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.red),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.errorColor),
             ),
             const SizedBox(height: _spacing),
             
@@ -347,7 +370,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           builder: (context, charging, child) {
                             return Icon(
                             charging ? Icons.battery_charging_full : Icons.battery_std,
-                            color: level < 20 ? Colors.red : Colors.green,
+                            color: level < 20 ? AppTheme.errorColor : AppTheme.successColor,
                             );
                           },
                         );
@@ -378,7 +401,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(_borderRadius),
                     ),
-                    backgroundColor: Colors.red,
+                    backgroundColor: AppTheme.errorColor,
                     foregroundColor: colorScheme.surfaceBright,
                   ),
                 ),

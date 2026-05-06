@@ -179,7 +179,7 @@ class BorderPainter extends CustomPainter {
     const tRadius = 30.0;
     const rect = Rect.fromLTWH(0, 0, 260, 260);
     final paint = Paint()
-      ..color = Colors.blue
+      ..color = AppTheme.seedColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = width;
 
