@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'services/handle_request.dart';
 import 'services/music.dart';
+import 'services/device_info.dart';
 
 enum SocketConnectionState { disconnected, connecting, connected, reconnecting }
 
@@ -23,10 +24,8 @@ class SocketClient extends ChangeNotifier{
   StreamSubscription? _subscription;
   final BytesBuilder _buffer = BytesBuilder();
 
-  //  Http Connection config
   String? _host;
   int? _port;
-  // String? _httpHost; // to pass to requestHandler if needed, but requestHandler gets it from us
   
   Timer? _heartbeatTimer;
   Timer? _pongTimeoutTimer;
@@ -37,15 +36,16 @@ class SocketClient extends ChangeNotifier{
   SocketClient();
 
   // --------------------------------     Services       ----------------------------------------
+  final batteryMontior = BatteryMonitorService();
   final requestHandler = HandleRequest();
   final music = MediaPoller();
-  // battery monitoring of andorid and music data for android along with http service
 
   // ----------------------------    Connection Information    --------------------------------------
   final ValueNotifier<bool> isCharging = ValueNotifier<bool>(false);
 
   // ---------------------------------    Getters    -------------------------------------------- 
   Stream<Map<String, dynamic>> get messageStream => _messageController.stream;
+  String? get serverIP => _host;
 
   // --------------------------------     Methods    --------------------------------------------
 
@@ -63,7 +63,8 @@ class SocketClient extends ChangeNotifier{
     }
 
     _attemptConnection();
-    music.startListening(onSend: send);
+    music.init(onSend: send);
+    batteryMontior.init();
   }
   
   Future<void> _attemptConnection() async {
@@ -98,10 +99,10 @@ class SocketClient extends ChangeNotifier{
             
             if (bytes.length >= 4 + length) {
               final payload = bytes.sublist(4, 4 + length);
-              final jsonString = utf8.decode(payload);
+              final rawMessage = utf8.decode(payload);
               
               if (!approved) {
-                if (jsonString == 'ACCEPTED') {
+                if (rawMessage == 'ACCEPTED') {
                   approved = true;
                   connectionStatus.value = SocketConnectionState.connected;
                   _isReconnecting = false;
@@ -112,7 +113,7 @@ class SocketClient extends ChangeNotifier{
                   _triggerReconnect();
                 }
               } else {
-                _handleMessage(jsonString);
+                _handleMessage(rawMessage);
               }
               
               _buffer.clear();
@@ -191,6 +192,7 @@ class SocketClient extends ChangeNotifier{
     _subscription = null;
     _socket?.destroy();
     _socket = null;
+
   }
 
   

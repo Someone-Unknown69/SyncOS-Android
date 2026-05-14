@@ -5,7 +5,7 @@ import 'dashboard/music_player.dart';
 import 'services/handle_request.dart';
 import 'pairing_screen.dart';
 import 'dashboard/controller_page.dart';
-
+import 'services/file_transfer.dart';
 
 // socket data processor
 final processor = HandleRequest();
@@ -116,7 +116,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     DashboardItem(
       label: 'Send Files',
       icon: Icons.file_copy,
-      onTap: () => (),
+      onTap: () async {
+        final transfer = FileTransfer();
+        await transfer.sendFile();
+      },
     ),
     DashboardItem(
       label: 'Run Command',

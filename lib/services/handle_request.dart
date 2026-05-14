@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'music.dart';
 import '../socket_client.dart';
+import 'file_transfer.dart';
 
 // Metadata class
 class MediaMetadata {
@@ -72,6 +73,7 @@ class HandleRequest {
       "battery_info": _handleBattery,
       "music": _handleMusic,
       "fetch_art": _handleFetchArt,
+      "file_transfer": _handleFTP,
     };
   }
 
@@ -176,7 +178,27 @@ class HandleRequest {
       }
     }
   }
+
+  void _handleFTP(Map<String, dynamic> data) {
+    final action = data['action'];
+    final args = data['args'];
+
+    if(action == 'send') {
+      // file requested from other device
+      // will add later
+    } else if (action == 'recieve') {
+      debugPrint('$args');
+      FileTransfer().recieveFile(args);
+    } else {
+      debugPrint('[Handler FTP] Invalid action');
+    }
+  }
+
   
+  
+
+
+
   Future<void> _fetchAlbumArt({int retryCount = 0}) async {
     try {
       final response = await http.get(Uri.parse('$_httpUrl/art')).timeout(const Duration(seconds: 3));

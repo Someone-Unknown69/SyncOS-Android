@@ -136,7 +136,7 @@ class MediaPoller {
   }
 
   // for permissions
-  void startListening({void Function(MediaInfo)? onUpdate, required void Function(String op, String action, Map<String, dynamic> args) onSend}) async {
+  void init({void Function(MediaInfo)? onUpdate, required void Function(String op, String action, Map<String, dynamic> args) onSend}) async {
     onMediaUpdate = onUpdate;
     debugPrint("starting subscription");
 

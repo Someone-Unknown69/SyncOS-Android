@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'main.dart'; // to navigate to HomeScreen
+import 'main.dart';
+import 'socket_client.dart';
 
 class PairingScreen extends StatefulWidget {
   const PairingScreen({super.key});
@@ -39,39 +39,33 @@ class _PairingScreenState extends State<PairingScreen> {
 
         final ip = data['ip'];
         final port = data['port'];
-        final httpPort = data['http_port'];
         final token = data['token'];
 
-        // Perform Handshake
-        final response = await http.post(
-          Uri.parse('http://$ip:$httpPort/pair'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'token': token}),
-        ).timeout(const Duration(seconds: 5));
+        // ---------- Authentication Part --------------
 
-        if (response.statusCode == 200) {
-          // Success, save to SharedPreferences
+        // set up the socket instance
+        final client = SocketClient.instance;
+        await client.connect(ip, port, token: token);
+
+        // wait to see if the status reached connected
+        await Future.delayed(const Duration(seconds: 2));
+
+        if(client.connectionStatus.value == SocketConnectionState.connected) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('server_ip', ip);
           await prefs.setInt('server_port', port);
-          await prefs.setInt('server_http_port', httpPort);
           await prefs.setString('pairing_token', token);
 
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Successfully Paired!')),
-          );
+          if(!mounted) return;
 
-          // Navigate to HomeScreen
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const HomeScreen()),
+            MaterialPageRoute(builder: (_) => const HomeScreen())
           );
         } else {
-          throw Exception('Handshake rejected by server');
+          throw Exception('Socket Authentication Failed');
         }
       }
     } catch (e) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Pairing failed: $e')),
       );
