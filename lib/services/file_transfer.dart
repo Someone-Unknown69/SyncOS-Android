@@ -1,21 +1,17 @@
-import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
 import 'package:mobile_controller/socket_client.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:external_path/external_path.dart';
+import '../main.dart';
+
+// ------------------------------        FTP Implementation Class       -----------------------------------
 
 class FileTransfer {
   static const int _ephemeralPort = 0;
 
-  Future<void> sendFile() async {
-    final filePath = await _pickFile();
-
-    if (filePath == null) {
-      debugPrint('[FTP] No file selected. Aborting transfer.');
-      return;
-    }
-
+  Future<void> sendFile(String filePath, {void Function(double)? onProgress}) async {
     final file = File(filePath);
 
     if(!await file.exists()) return;
@@ -41,6 +37,7 @@ class FileTransfer {
       'mimeType': 'application/octet-stream', // willl add more compatablity
     });
 
+    int sentSize = 0;
 
     // wait for the accepted reply from peer
     try {
@@ -48,8 +45,13 @@ class FileTransfer {
       debugPrint('[FTP] Phone connected to side socket. Starting stream');
       final reader = file.openRead();
 
+      await for (List<int> chunk in reader) {
+        socket.add(chunk);
+        sentSize += chunk.length;
+        if (onProgress != null) onProgress(sentSize / fileSize);
+      }
+
       await socket.addStream(reader);
-      
       await socket.flush();
       await socket.close();
     } catch (e) {
@@ -59,27 +61,44 @@ class FileTransfer {
     }
   }
 
-  Future<void> recieveFile (Map<String, dynamic> metadata) async {
+  Future<void> recieveFile (Map<String, dynamic> metadata, {void Function(double)? onProgress}) async {
     debugPrint("[FTP] Starting file recieve");
     final ftpPort = metadata['ftpPort'];
     final fileName = metadata['fileName'];
     final expectedChecksum = metadata['checksum'];
+    final fileSize = metadata['fileSize'];
 
-    final directory = await getExternalStorageDirectory();
+    final directoryPath = await ExternalPath.getExternalStoragePublicDirectory(ExternalPath.DIRECTORY_DOWNLOAD);
+    String savePath = '$directoryPath/$fileName';
+    File file = File(savePath);
 
-    if (directory == null) {
-      debugPrint('[FTP] Could not access external storage directory');
-      return;
+    // handling duplicate files
+    if(await file.exists()) {
+      final String extension = fileName.contains('.') ? fileName.split('.').last : '';
+      final String nameWithoutExtension = fileName.contains('.') 
+          ? fileName.substring(0, fileName.lastIndexOf('.')) 
+          : fileName;
+
+      int counter = 1;
+      while (await file.exists()) {
+        // Construct new name: "test (1).file"
+        savePath = '$directoryPath/$nameWithoutExtension ($counter).$extension';
+        file = File(savePath);
+        counter++;
+      }
     }
 
-    final savePath = '${directory.path}/$fileName';
-    final file = File(savePath);
-
     final ftpSocket = await Socket.connect(SocketClient.instance.serverIP, ftpPort);
-
+    int receivedSize = 0;
     final sink = file.openWrite();
-    await sink.addStream(ftpSocket);
+
+    await for (List<int> chunk in ftpSocket) {
+      sink.add(chunk);
+      receivedSize += chunk.length;
+      if (onProgress != null) onProgress(receivedSize / fileSize);
+    }
     
+    await sink.flush();
     await sink.close();
     await ftpSocket.close();
     
@@ -100,7 +119,7 @@ class FileTransfer {
   }
 
   // select file to transfer
-  Future<String?> _pickFile() async {
+  Future<String?> pickFile() async {
     try {
       FilePickerResult? result = await FilePicker.pickFiles(
         allowMultiple: false, // Set true to sync multiple files
@@ -121,5 +140,71 @@ class FileTransfer {
       debugPrint('[FTP] Error picking file: $e');
       return null;
     }
+  }
+}
+
+// ----------------------------       Progress Snackbar     ---------------------------------------
+
+class TransferSnackbar {
+  static void show({
+    required String label,
+    required ValueNotifier<double> progressNotifier,
+    required Future<void> task,
+  }) {
+    final state = snackbarKey.currentState;
+    final context = snackbarKey.currentContext;
+    if (state == null || context == null) return;
+
+    final theme = Theme.of(context);
+    final backgroundColor = theme.snackBarTheme.backgroundColor ?? theme.colorScheme.surfaceContainerHighest;
+    final textColor = theme.snackBarTheme.contentTextStyle?.color ?? theme.colorScheme.onSurface;
+    final progressColor = theme.colorScheme.primary;
+
+    state.hideCurrentSnackBar();
+    state.showSnackBar(
+      SnackBar(
+        duration: const Duration(days: 1),
+        backgroundColor: backgroundColor,
+        behavior: SnackBarBehavior.floating,
+        content: ValueListenableBuilder<double>(
+          valueListenable: progressNotifier,
+          builder: (context, progress, child) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "$label: ${(progress * 100).toInt()}%",
+                  style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: progressColor.withValues(alpha: 0.3),
+                  valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+
+    task.then((_) {
+      _showResult("Transfer Complete!", Colors.green);
+    }).catchError((e) {
+      _showResult("Transfer Failed: $e", theme.colorScheme.error);
+    });
+  }
+
+  static void _showResult(String message, Color color) {
+    snackbarKey.currentState?.hideCurrentSnackBar();
+    snackbarKey.currentState?.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 }
