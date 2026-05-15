@@ -6,7 +6,7 @@ import 'services/handle_request.dart';
 import 'pairing_screen.dart';
 import 'dashboard/controller_page.dart';
 import 'services/file_transfer.dart';
-
+import 'dart:io';
 
 final GlobalKey<ScaffoldMessengerState> snackbarKey = GlobalKey<ScaffoldMessengerState>();
 // socket data processor
@@ -129,24 +129,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           return;
         }
 
+        final file = File(filePath);
+        final fileName = file.path.split(Platform.pathSeparator).last;
+        final fileSize = await file.length();
+
         final progress = ValueNotifier<double>(0.0);
           
-        final task = FileTransfer().sendFile(
+        final task = transfer.sendFile(
           filePath,
           onProgress: (p) => progress.value = p,
         );
 
         TransferSnackbar.show(
           label: "Sending File",
+          fileName: fileName,
+          fileSize: fileSize,
           progressNotifier: progress,
           task: task,
+          onCancel: () {
+            debugPrint("[FTP] File : $fileName Transfer Cancelled");
+          }
         );
       },
     ),
     DashboardItem(
       label: 'Run Command',
       icon: Icons.terminal,
-      onTap: () => (),
+      onTap: () async {
+
+      },
     ),
     DashboardItem(
       label: 'Send Clipboard',
