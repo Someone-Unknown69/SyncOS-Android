@@ -30,7 +30,7 @@ class BatteryMonitorService{
 
     SocketClient.instance.send("battery_info", '', {
       'level': level,
-      'status': status.toString(),
+      'status': status.toString() == 'BatteryState.charging',
     });
 
     // send battery updates on a subscription
@@ -38,9 +38,11 @@ class BatteryMonitorService{
     _batterySubscription = _battery.onBatteryStateChanged.listen((BatteryState state) async {
       final currentLevel = await getBatteryLevel();
       
+      final bool isCurrentlyCharging = (state == BatteryState.charging);
+
       SocketClient.instance.send('battery_info', '', {
         'level': currentLevel,
-        'status': state.toString(),
+        'status': isCurrentlyCharging,
       });
     });
   }
