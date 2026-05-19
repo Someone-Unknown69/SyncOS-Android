@@ -36,7 +36,7 @@ class SocketClient extends ChangeNotifier{
   SocketClient();
 
   // --------------------------------     Services       ----------------------------------------
-  final batteryMontior = BatteryMonitorService();
+  final batteryMonitor = BatteryMonitorService();
   final requestHandler = HandleRequest();
   final music = MediaPoller();
 
@@ -62,9 +62,9 @@ class SocketClient extends ChangeNotifier{
       _pairingToken = token;
     }
 
-    _attemptConnection();
-    music.init(onSend: send);
-    batteryMontior.init();
+    await _attemptConnection();
+    music.init();
+    batteryMonitor.init();
   }
   
   Future<void> _attemptConnection() async {

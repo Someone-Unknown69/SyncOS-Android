@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
+import 'package:mobile_controller/services/socket_client.dart';
 
 @immutable
 class MediaInfo {
@@ -136,7 +137,7 @@ class MediaPoller {
   }
 
   // for permissions
-  void init({void Function(MediaInfo)? onUpdate, required void Function(String op, String action, Map<String, dynamic> args) onSend}) async {
+  void init({void Function(MediaInfo)? onUpdate}) async {
     onMediaUpdate = onUpdate;
     debugPrint("starting subscription");
 
@@ -152,21 +153,21 @@ class MediaPoller {
         debugPrint("Notification listener access is enabled");
       }
 
-      _startSubscription(onSend);
+      _startSubscription();
     } catch (e) {
       debugPrint('we cooked : $e');
     }
   }
 
   // starting the music subscription
-  void _startSubscription(void Function(String op, String action, Map<String, dynamic> args) onSend) {
+  void _startSubscription() {
     _musicSubscription?.cancel();
 
     // Poll current state once immediately on startup
     _methodChannel.invokeMethod('getCurrentMusicInfo').then((result) {
       if (result != null) {
         final info = Map<String, dynamic>.from(result as Map);
-        _updateMetadata(info, onSend);
+        _updateMetadata(info);
       }
     }).catchError((e) { debugPrint('getCurrentMusicInfo error: $e'); });
 
@@ -175,7 +176,7 @@ class MediaPoller {
         try {
           final Map<dynamic, dynamic>? raw = event as Map<dynamic, dynamic>?;
           if (raw == null) return;
-          _updateMetadata(Map<String, dynamic>.from(raw), onSend);
+          _updateMetadata(Map<String, dynamic>.from(raw));
         } catch (e) {
           debugPrint("error in subscription handler: $e");
         }
@@ -186,7 +187,7 @@ class MediaPoller {
   }
 
   // this updates and changes metadata
-  void _updateMetadata(Map<String, dynamic> info, void Function(String op, String action, Map<String, dynamic> args) onSend) {
+  void _updateMetadata(Map<String, dynamic> info) {
     final packageName = info['packageName'] as String?;
     if (!_isMusicApp(packageName)) return;
     
@@ -232,7 +233,7 @@ class MediaPoller {
       }
     }
 
-    onSend('music', 'update_metadata', map);
+    SocketClient.instance.send('music', 'update_metadata', map);
 
     onMediaUpdate?.call(metadata);
   }
