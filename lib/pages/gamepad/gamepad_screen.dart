@@ -95,25 +95,16 @@ class _GamePageState extends State<GamePage> {
   @override
   void initState() {
     super.initState();
-    
-    // Force Horizontal (Landscape) Orientation
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
-
-    // Hide Status Bar and Navigation Bar
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   @override
   void dispose() {
-    // Reset Orientation when leaving
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
-
-    // Show Status Bar and Navigation Bar again
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
@@ -122,23 +113,52 @@ class _GamePageState extends State<GamePage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final size = MediaQuery.of(context).size;
+
+    // =========================================================================
+    //                  CONFIGURATION & LAYOUT VALUES 
+    //(Tweak these to change the entire UI, will make it modifiable in future)
+    // =========================================================================
     
-    // Layout Constants
-    const double btnSize = 65;
-    const double padOffset = 50;
-    const double shoulderWidth = 100;
-    const double shoulderHeight = 50;
+    // Global Sizing
+    const double btnSize = 55.0;       // Diameter of D-pad and Action buttons
+    const double analogRadius = 55.0;  // Radius of the Analog outer ring
+
+    // Shoulder/Trigger Buttons Configuration
+    const double shoulderWidth = 90.0;
+    const double shoulderHeight = 45.0;
+    const double shoulderTopPadding = 15.0;
+    const double shoulderSidePadding = 20.0;
+    const double shoulderGap = 10.0;   // Vertical space between L2/L1 and R2/R1
+
+    // Cluster Positioning (D-pad & Actions)
+    const double clusterSideOffset = 45.0; // Margin from left/right edges
+    const double clusterBottomOffset = 100.0; // Margin from bottom
+
+    const double analogXOffset = 195; // margin from left/right
+    const double analogBottomOffset = 20.0; // margin from bottom
+
+    // Central Buttons (Select, Start, Back)
+    const double centerTopPadding = 25.0;
+    const double centerBtnWidth = 55.0;
+    const double centerBtnHeight = 35.0;
+    const double centerGap = 40.0;
+    
+    // =========================================================================
+    // DERIVED COMPUTATIONS (Do not modify manually unless tweaking math)
+    // =========================================================================
+    final double halfWidth = size.width / 2;
+    final double lowerShoulderTop = shoulderTopPadding + shoulderHeight + shoulderGap;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
       body: Stack(
         children: [
-          // --- SHOULDER BUTTONS (TOP) ---
-          
+          // --- SHOULDER BUTTONS ---
+
           // L2
           Positioned(
-            top: 20,
-            left: 20,
+            top: shoulderTopPadding,
+            left: shoulderSidePadding,
             child: GamepadButton(
               width: shoulderWidth,
               height: shoulderHeight,
@@ -149,8 +169,8 @@ class _GamePageState extends State<GamePage> {
           ),
           // L1
           Positioned(
-            top: 80,
-            left: 20,
+            top: lowerShoulderTop,
+            left: shoulderSidePadding,
             child: GamepadButton(
               width: shoulderWidth,
               height: shoulderHeight,
@@ -159,11 +179,10 @@ class _GamePageState extends State<GamePage> {
               onPressedUp: () => _usbControllerService.sendEvent('L1', 'up'),
             ),
           ),
-
           // R2
           Positioned(
-            top: 20,
-            right: 20,
+            top: shoulderTopPadding,
+            right: shoulderSidePadding,
             child: GamepadButton(
               width: shoulderWidth,
               height: shoulderHeight,
@@ -174,8 +193,8 @@ class _GamePageState extends State<GamePage> {
           ),
           // R1
           Positioned(
-            top: 80,
-            right: 20,
+            top: lowerShoulderTop,
+            right: shoulderSidePadding,
             child: GamepadButton(
               width: shoulderWidth,
               height: shoulderHeight,
@@ -187,23 +206,22 @@ class _GamePageState extends State<GamePage> {
 
           // --- CENTRAL BUTTONS ---
           
-          // Back Button (Moved to top center-ish)
+          // Back Button
           Positioned(
-            top: 20,
-            left: size.width / 2 - 120,
+            top: shoulderTopPadding,
+            left: halfWidth - (centerBtnWidth + centerGap * 2),
             child: IconButton(
               icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
               onPressed: () => Navigator.pop(context),
             ),
           ),
-
           // SELECT
           Positioned(
-            top: 30,
-            left: size.width / 2 - 70,
+            top: centerTopPadding,
+            left: halfWidth - centerBtnWidth - (centerGap / 2),
             child: GamepadButton(
-              width: 60,
-              height: 40,
+              width: centerBtnWidth,
+              height: centerBtnHeight,
               icon: Icons.view_headline_rounded,
               onPressedDown: () => _usbControllerService.sendEvent('SELECT', 'down'),
               onPressedUp: () => _usbControllerService.sendEvent('SELECT', 'up'),
@@ -211,24 +229,23 @@ class _GamePageState extends State<GamePage> {
           ),
           // START
           Positioned(
-            top: 30,
-            left: size.width / 2 + 10,
+            top: centerTopPadding,
+            left: halfWidth + (centerGap / 2),
             child: GamepadButton(
-              width: 60,
-              height: 40,
+              width: centerBtnWidth,
+              height: centerBtnHeight,
               icon: Icons.play_arrow_rounded,
               onPressedDown: () => _usbControllerService.sendEvent('START', 'down'),
               onPressedUp: () => _usbControllerService.sendEvent('START', 'up'),
             ),
           ),
 
-
-          // --- D-PAD (LEFT) ---
+          // --- D-PAD (LEFT CLUSTER) ---
           
           // UP
           Positioned(
-            left: padOffset + btnSize,
-            bottom: padOffset + (btnSize * 1.5),
+            left: clusterSideOffset + btnSize,
+            bottom: clusterBottomOffset + (btnSize * 1.5),
             child: GamepadButton(
               width: btnSize,
               height: btnSize,
@@ -239,8 +256,8 @@ class _GamePageState extends State<GamePage> {
           ),
           // DOWN
           Positioned(
-            left: padOffset + btnSize,
-            bottom: padOffset - (btnSize * 0.5),
+            left: clusterSideOffset + btnSize,
+            bottom: clusterBottomOffset - (btnSize * 0.5),
             child: GamepadButton(
               width: btnSize,
               height: btnSize,
@@ -251,8 +268,8 @@ class _GamePageState extends State<GamePage> {
           ),
           // LEFT
           Positioned(
-            left: padOffset,
-            bottom: padOffset + (btnSize * 0.5),
+            left: clusterSideOffset,
+            bottom: clusterBottomOffset + (btnSize * 0.5),
             child: GamepadButton(
               width: btnSize,
               height: btnSize,
@@ -263,8 +280,8 @@ class _GamePageState extends State<GamePage> {
           ),
           // RIGHT
           Positioned(
-            left: padOffset + (btnSize * 2),
-            bottom: padOffset + (btnSize * 0.5),
+            left: clusterSideOffset + (btnSize * 2),
+            bottom: clusterBottomOffset + (btnSize * 0.5),
             child: GamepadButton(
               width: btnSize,
               height: btnSize,
@@ -274,13 +291,12 @@ class _GamePageState extends State<GamePage> {
             ),
           ),
 
-
-          // --- ACTION BUTTONS (RIGHT) ---
+          // --- ACTION BUTTONS (RIGHT CLUSTER) ---
           
-          // TRIANGLE (North)
+          // TRIANGLE
           Positioned(
-            right: padOffset + btnSize,
-            bottom: padOffset + (btnSize * 1.5),
+            right: clusterSideOffset + btnSize,
+            bottom: clusterBottomOffset + (btnSize * 1.5),
             child: GamepadButton(
               width: btnSize,
               height: btnSize,
@@ -291,10 +307,10 @@ class _GamePageState extends State<GamePage> {
               onPressedUp: () => _usbControllerService.sendEvent('TRIANGLE', 'up'),
             ),
           ),
-          // CROSS (South)
+          // CROSS
           Positioned(
-            right: padOffset + btnSize,
-            bottom: padOffset - (btnSize * 0.5),
+            right: clusterSideOffset + btnSize,
+            bottom: clusterBottomOffset - (btnSize * 0.5),
             child: GamepadButton(
               width: btnSize,
               height: btnSize,
@@ -305,10 +321,10 @@ class _GamePageState extends State<GamePage> {
               onPressedUp: () => _usbControllerService.sendEvent('CROSS', 'up'),
             ),
           ),
-          // SQUARE (West)
+          // SQUARE
           Positioned(
-            right: padOffset + (btnSize * 2),
-            bottom: padOffset + (btnSize * 0.5),
+            right: clusterSideOffset + (btnSize * 2),
+            bottom: clusterBottomOffset + (btnSize * 0.5),
             child: GamepadButton(
               width: btnSize,
               height: btnSize,
@@ -319,10 +335,10 @@ class _GamePageState extends State<GamePage> {
               onPressedUp: () => _usbControllerService.sendEvent('SQUARE', 'up'),
             ),
           ),
-          // CIRCLE (East)
+          // CIRCLE
           Positioned(
-            right: padOffset,
-            bottom: padOffset + (btnSize * 0.5),
+            right: clusterSideOffset,
+            bottom: clusterBottomOffset + (btnSize * 0.5),
             child: GamepadButton(
               width: btnSize,
               height: btnSize,
@@ -334,6 +350,30 @@ class _GamePageState extends State<GamePage> {
             ),
           ),
 
+          // --- ANALOG STICKS ---
+          
+          // Left Analog
+          Positioned(
+            left: analogXOffset,
+            bottom: analogBottomOffset,
+            child: AnalogStick(
+              radius: analogRadius,
+              onStickChanged: (x, y) {
+                _usbControllerService.sendAnalog('left_analog', x, y);
+              },
+            ),
+          ),
+          // Right Analog
+          Positioned(
+            right: analogXOffset,
+            bottom: analogBottomOffset,
+            child: AnalogStick(
+              radius: analogRadius,
+              onStickChanged: (x, y) {
+                _usbControllerService.sendAnalog('right_analog', x, y);
+              },
+            ),
+          ),
         ],
       ),
     );
@@ -432,6 +472,103 @@ class _GamepadButtonState extends State<GamepadButton> {
                   ),
                 ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class AnalogStick extends StatefulWidget {
+  final double radius;
+  final Function(double x, double y) onStickChanged;
+
+  const AnalogStick({
+    super.key,
+    required this.radius,
+    required this.onStickChanged,
+  });
+
+  @override
+  State<AnalogStick> createState() => _AnalogStickState();
+}
+
+class _AnalogStickState extends State<AnalogStick> {
+  Offset _stickPosition = Offset.zero;
+
+  void _updateStickPosition(Offset localPosition) {
+    final center = Offset(widget.radius, widget.radius);
+    final offsetFromCenter = localPosition - center;
+    
+    // Distance from the exact center point
+    double distance = offsetFromCenter.distance;
+    
+    // Clamp stick range to outer boundary radius
+    double maxDistance = widget.radius - 15; 
+
+    Offset normalizedOffset = offsetFromCenter;
+    if (distance > maxDistance) {
+      normalizedOffset = (offsetFromCenter / distance) * maxDistance;
+      distance = maxDistance;
+    }
+
+    setState(() {
+      _stickPosition = normalizedOffset;
+    });
+
+    // Emits values mapping nicely between -1.0 and 1.0
+    double vectorX = normalizedOffset.dx / maxDistance;
+    double vectorY = normalizedOffset.dy / maxDistance;
+    widget.onStickChanged(vectorX, -vectorY); // Invert Y to match traditional joystick standards
+  }
+
+  void _resetStick() {
+    setState(() {
+      _stickPosition = Offset.zero;
+    });
+    widget.onStickChanged(0.0, 0.0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onPanUpdate: (details) => _updateStickPosition(details.localPosition),
+      onPanEnd: (_) => _resetStick(),
+      onPanCancel: () => _resetStick(),
+      child: Container(
+        width: widget.radius * 2,
+        height: widget.radius * 2,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: colorScheme.onSurface.withValues(alpha: 0.08),
+          border: Border.all(
+            color: colorScheme.onSurface.withValues(alpha: 0.2),
+            width: 2,
+          ),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              left: widget.radius - 20 + _stickPosition.dx,
+              top: widget.radius - 20 + _stickPosition.dy,
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colorScheme.onSurface.withValues(alpha: 0.7),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    )
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
