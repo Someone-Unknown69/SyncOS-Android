@@ -1,9 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'music.dart';
-import '../socket_client.dart';
+import 'socket_client.dart';
 import 'file_transfer.dart';
 
 // Metadata class
@@ -72,7 +71,6 @@ class HandleRequest {
     _handlers = {
       "battery_info": _handleBattery,
       "music": _handleMusic,
-      "fetch_art": _handleFetchArt,
       "file_transfer": _handleFTP,
     };
   }
@@ -87,13 +85,6 @@ class HandleRequest {
   final ValueNotifier<bool> isCharging = ValueNotifier<bool>(false);
   
   final ValueNotifier<MediaMetadata> metadata = ValueNotifier(MediaMetadata.initial());
-  
-  String _httpUrl = '';
-  String get httpUrl => _httpUrl;
-
-  void setHttpUrl(String url) {
-    _httpUrl = url;
-  }
 
   // Optimistic update for UI responsiveness
   void updateStatus(String newStatus) {
@@ -123,12 +114,6 @@ class HandleRequest {
     batteryLevel.value = args['level'] ?? 0;
     isCharging.value = args['status'] ?? false;
     deviceName.value = args['device'] ?? "Unknown";
-  }
-
-  void _handleFetchArt(Map<String, dynamic> data) {
-    if (_httpUrl.isNotEmpty) {
-      _fetchAlbumArt(); // Fetch immediately
-    }
   }
 
   void _handleMusic(Map<String, dynamic> data) {
@@ -163,11 +148,6 @@ class HandleRequest {
         position: args['position'],
         albumArt: args['albumArt'] ?? metadata.value.albumArt,
       );
-      
-      // Proactively fetch album art when the song changes
-      if (newTitle != oldTitle && newTitle != 'Unknown' && _httpUrl.isNotEmpty) {
-        _fetchAlbumArt(); // Fetch immediately
-      }
     } else if (action == 'control') {
       _mediaPoller ??= SocketClient.instance.music;
 
@@ -198,34 +178,4 @@ class HandleRequest {
   
 
 
-
-  Future<void> _fetchAlbumArt({int retryCount = 0}) async {
-    try {
-      final response = await http.get(Uri.parse('$_httpUrl/art')).timeout(const Duration(seconds: 3));
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['albumArt'] != null && data['albumArt'].toString().isNotEmpty) {
-          metadata.value = metadata.value.copyWith(albumArt: data['albumArt']);
-          return; // Success!
-        }
-      }
-
-      // Retry up to 3 times with a short 200ms delay if art isn't ready
-      if (retryCount < 3) {
-        await Future.delayed(const Duration(milliseconds: 200));
-        return _fetchAlbumArt(retryCount: retryCount + 1);
-      }
-    } catch (e) {
-      if (retryCount < 3) {
-        await Future.delayed(const Duration(milliseconds: 200));
-        return _fetchAlbumArt(retryCount: retryCount + 1);
-      }
-      debugPrint("Failed to fetch album art: $e");
-    }
-
-    // Final fallback
-    if (retryCount >= 3) {
-      metadata.value = metadata.value.copyWith(albumArt: "N/A");
-    }
-  }
 }

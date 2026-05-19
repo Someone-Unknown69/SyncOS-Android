@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../main.dart';
-import '../services/usb_controller.dart';
+import '../../theme/app_theme.dart';
+import '../../services/usb_controller.dart';
 
 class ControllerPage extends StatelessWidget {
   const ControllerPage({super.key});

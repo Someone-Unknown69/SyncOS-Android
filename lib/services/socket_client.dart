@@ -4,9 +4,9 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'services/handle_request.dart';
-import 'services/music.dart';
-import 'services/device_info.dart';
+import 'handle_request.dart';
+import 'music.dart';
+import 'device_info.dart';
 
 enum SocketConnectionState { disconnected, connecting, connected, reconnecting }
 

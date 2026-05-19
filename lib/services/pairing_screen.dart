@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'main.dart';
+import '../theme/app_theme.dart';
+import '../pages/home/home_screen.dart';
 import 'socket_client.dart';
+import 'storage_service.dart';
 
 class PairingScreen extends StatefulWidget {
   const PairingScreen({super.key});
@@ -51,10 +52,9 @@ class _PairingScreenState extends State<PairingScreen> {
         await Future.delayed(const Duration(seconds: 2));
 
         if(client.connectionStatus.value == SocketConnectionState.connected) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('server_ip', ip);
-          await prefs.setInt('server_port', port);
-          await prefs.setString('pairing_token', token);
+          await StorageService.setServerIp(ip);
+          await StorageService.setServerPort(port);
+          await StorageService.setPairingToken(token);
 
           if(!mounted) return;
 
@@ -107,8 +107,8 @@ class _PairingScreenState extends State<PairingScreen> {
           if (_isProcessing)
             Container(
               color: Colors.black54,
-              child: const Center(
-                child: CircularProgressIndicator(color: Colors.white),
+              child: Center(
+                child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
               ),
             ),
         ],
@@ -142,7 +142,7 @@ class QRScannerOverlay extends StatelessWidget {
                     width: scanArea,
                     decoration: BoxDecoration(
                       color: Colors.black,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(AppTheme.borderRadius),
                     ),
                   ),
                 ),

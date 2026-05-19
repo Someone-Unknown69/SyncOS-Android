@@ -1,4 +1,4 @@
-import '../socket_client.dart';
+import 'socket_client.dart';
 import 'package:flutter/foundation.dart';
 
 class USBControllerService {

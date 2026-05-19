@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:io';
-import '../socket_client.dart';
+import '../../services/socket_client.dart';
 import 'dart:math';
-import '../main.dart'; // To access the global processor
+import '../../theme/app_theme.dart';
+import '../../core/globals.dart'; // To access the global processor
 
 // -------------------------------      Music Widget     -------------------------------------------
 
@@ -159,7 +160,7 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
 
               // Layout Content
               Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(AppTheme.padding),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -193,7 +194,7 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
                           style: IconButton.styleFrom(
                             backgroundColor: theme.onPrimaryContainer,
                             shape: const CircleBorder(),
-                            padding: const EdgeInsets.all(15),
+                            padding: const EdgeInsets.all(AppTheme.padding),
                           ),
                         ),
                       ],
