@@ -163,8 +163,8 @@ class _GamePageState extends State<GamePage> {
               width: shoulderWidth,
               height: shoulderHeight,
               label: "L2",
-              onPressedDown: () => _usbControllerService.sendEvent('L2', 'down'),
-              onPressedUp: () => _usbControllerService.sendEvent('L2', 'up'),
+              onPressedDown: () => _usbControllerService.sendEvent('triggers', {'l2': 1.0, 'r2': _usbControllerService.currentR2}),
+              onPressedUp: () => _usbControllerService.sendEvent('triggers', {'l2': 0.0, 'r2': _usbControllerService.currentR2})
             ),
           ),
           // L1
@@ -175,8 +175,8 @@ class _GamePageState extends State<GamePage> {
               width: shoulderWidth,
               height: shoulderHeight,
               label: "L1",
-              onPressedDown: () => _usbControllerService.sendEvent('L1', 'down'),
-              onPressedUp: () => _usbControllerService.sendEvent('L1', 'up'),
+              onPressedDown: () => _usbControllerService.sendEvent('down', {'button': 'L1'}),
+              onPressedUp: () => _usbControllerService.sendEvent('up', {'button': 'L1'}),
             ),
           ),
           // R2
@@ -187,8 +187,8 @@ class _GamePageState extends State<GamePage> {
               width: shoulderWidth,
               height: shoulderHeight,
               label: "R2",
-              onPressedDown: () => _usbControllerService.sendEvent('R2', 'down'),
-              onPressedUp: () => _usbControllerService.sendEvent('R2', 'up'),
+              onPressedDown: () => _usbControllerService.sendEvent('triggers', {'l2': _usbControllerService.currentL2, 'r2': 1.0}),
+              onPressedUp: () => _usbControllerService.sendEvent('triggers', {'l2': _usbControllerService.currentL2, 'r2': 0.0}),
             ),
           ),
           // R1
@@ -199,8 +199,8 @@ class _GamePageState extends State<GamePage> {
               width: shoulderWidth,
               height: shoulderHeight,
               label: "R1",
-              onPressedDown: () => _usbControllerService.sendEvent('R1', 'down'),
-              onPressedUp: () => _usbControllerService.sendEvent('R1', 'up'),
+              onPressedDown: () => _usbControllerService.sendEvent('down', {'button': 'R1'}),
+              onPressedUp: () => _usbControllerService.sendEvent('up', {'button': 'R1'}),
             ),
           ),
 
@@ -223,8 +223,8 @@ class _GamePageState extends State<GamePage> {
               width: centerBtnWidth,
               height: centerBtnHeight,
               icon: Icons.view_headline_rounded,
-              onPressedDown: () => _usbControllerService.sendEvent('SELECT', 'down'),
-              onPressedUp: () => _usbControllerService.sendEvent('SELECT', 'up'),
+              onPressedDown: () => _usbControllerService.sendEvent('down', {'button': 'SELECT'}),
+              onPressedUp: () => _usbControllerService.sendEvent('up', {'button': 'SELECT'}),
             ),
           ),
           // START
@@ -235,8 +235,8 @@ class _GamePageState extends State<GamePage> {
               width: centerBtnWidth,
               height: centerBtnHeight,
               icon: Icons.play_arrow_rounded,
-              onPressedDown: () => _usbControllerService.sendEvent('START', 'down'),
-              onPressedUp: () => _usbControllerService.sendEvent('START', 'up'),
+              onPressedDown: () => _usbControllerService.sendEvent('down', {'button': 'START'}),
+              onPressedUp: () => _usbControllerService.sendEvent('up', {'button': 'START'}),
             ),
           ),
 
@@ -250,8 +250,8 @@ class _GamePageState extends State<GamePage> {
               width: btnSize,
               height: btnSize,
               icon: Icons.keyboard_arrow_up_rounded,
-              onPressedDown: () => _usbControllerService.sendEvent('UP', 'down'),
-              onPressedUp: () => _usbControllerService.sendEvent('UP', 'up'),
+              onPressedDown: () => _updateDpadKey('DPAD_UP', 'down'),
+              onPressedUp: () => _updateDpadKey('DPAD_UP', 'up'),
             ),
           ),
           // DOWN
@@ -262,8 +262,8 @@ class _GamePageState extends State<GamePage> {
               width: btnSize,
               height: btnSize,
               icon: Icons.keyboard_arrow_down_rounded,
-              onPressedDown: () => _usbControllerService.sendEvent('DOWN', 'down'),
-              onPressedUp: () => _usbControllerService.sendEvent('DOWN', 'up'),
+              onPressedDown: () => _updateDpadKey('DPAD_DOWN', 'down'),
+              onPressedUp: () => _updateDpadKey('DPAD_DOWN', 'up'),
             ),
           ),
           // LEFT
@@ -274,8 +274,8 @@ class _GamePageState extends State<GamePage> {
               width: btnSize,
               height: btnSize,
               icon: Icons.keyboard_arrow_left_rounded,
-              onPressedDown: () => _usbControllerService.sendEvent('LEFT', 'down'),
-              onPressedUp: () => _usbControllerService.sendEvent('LEFT', 'up'),
+              onPressedDown: () => _updateDpadKey('DPAD_LEFT', 'down'),
+              onPressedUp: () => _updateDpadKey('DPAD_LEFT', 'up'),
             ),
           ),
           // RIGHT
@@ -286,8 +286,8 @@ class _GamePageState extends State<GamePage> {
               width: btnSize,
               height: btnSize,
               icon: Icons.keyboard_arrow_right_rounded,
-              onPressedDown: () => _usbControllerService.sendEvent('RIGHT', 'down'),
-              onPressedUp: () => _usbControllerService.sendEvent('RIGHT', 'up'),
+              onPressedDown: () => _updateDpadKey('DPAD_RIGHT', 'down'),
+              onPressedUp: () => _updateDpadKey('DPAD_RIGHT', 'up'),
             ),
           ),
 
@@ -303,8 +303,8 @@ class _GamePageState extends State<GamePage> {
               label: "△",
               isCircle: true,
               isPrimary: true,
-              onPressedDown: () => _usbControllerService.sendEvent('TRIANGLE', 'down'),
-              onPressedUp: () => _usbControllerService.sendEvent('TRIANGLE', 'up'),
+              onPressedDown: () => _usbControllerService.sendEvent('down', {'button': 'TRIANGLE'}),
+              onPressedUp: () => _usbControllerService.sendEvent('up', {'button': 'TRIANGLE'}),
             ),
           ),
           // CROSS
@@ -317,8 +317,8 @@ class _GamePageState extends State<GamePage> {
               label: "✕",
               isCircle: true,
               isPrimary: true,
-              onPressedDown: () => _usbControllerService.sendEvent('CROSS', 'down'),
-              onPressedUp: () => _usbControllerService.sendEvent('CROSS', 'up'),
+              onPressedDown: () => _usbControllerService.sendEvent('down', {'button': 'CROSS'}),
+              onPressedUp: () => _usbControllerService.sendEvent('up', {'button': 'CROSS'}),
             ),
           ),
           // SQUARE
@@ -331,8 +331,8 @@ class _GamePageState extends State<GamePage> {
               label: "□",
               isCircle: true,
               isPrimary: true,
-              onPressedDown: () => _usbControllerService.sendEvent('SQUARE', 'down'),
-              onPressedUp: () => _usbControllerService.sendEvent('SQUARE', 'up'),
+              onPressedDown: () => _usbControllerService.sendEvent('down', {'button': 'SQUARE'}),
+              onPressedUp: () => _usbControllerService.sendEvent('up', {'button': 'SQUARE'}),
             ),
           ),
           // CIRCLE
@@ -345,8 +345,8 @@ class _GamePageState extends State<GamePage> {
               label: "○",
               isCircle: true,
               isPrimary: true,
-              onPressedDown: () => _usbControllerService.sendEvent('CIRCLE', 'down'),
-              onPressedUp: () => _usbControllerService.sendEvent('CIRCLE', 'up'),
+              onPressedDown: () => _usbControllerService.sendEvent('down', {'button': 'CIRCLE'}),
+              onPressedUp: () => _usbControllerService.sendEvent('up', {'button': 'CIRCLE'}),
             ),
           ),
 
@@ -377,6 +377,25 @@ class _GamePageState extends State<GamePage> {
         ],
       ),
     );
+  }
+
+  void _updateDpadKey(String key, String action) {
+    if (action == 'down') {
+      _usbControllerService.setPressedState(key, true);
+    } else {
+      _usbControllerService.setPressedState(key, false);
+    }
+    int x = 0;
+    int y = 0;
+    if (_usbControllerService.isPressed('DPAD_LEFT')) x -= 1;
+    if (_usbControllerService.isPressed('DPAD_RIGHT')) x += 1;
+    if (_usbControllerService.isPressed('DPAD_UP')) y -= 1;
+    if (_usbControllerService.isPressed('DPAD_DOWN')) y += 1;
+
+    _usbControllerService.sendEvent('dpad', {
+      'x': x,
+      'y': y,
+    });
   }
 }
 
