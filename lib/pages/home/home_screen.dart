@@ -64,6 +64,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       label: 'Run Command',
       icon: Icons.terminal,
       onTap: () async {
+        client.send('notification', 'receive', {
+          'app': 'Whatsapp',
+          'body' : 'u got a message nigga',
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'color': 0xFF1DB954
+        });
         // Implementation for Run Command
       },
     ),
