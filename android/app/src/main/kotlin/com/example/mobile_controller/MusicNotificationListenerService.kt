@@ -32,7 +32,29 @@ class MusicNotificationListenerService : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         super.onNotificationPosted(sbn)
-        sbn?.let { sendFromNotification(it) }
+        if (sbn == null) return
+
+        val packageName = sbn.packageName
+        val extras = sbn.notification.extras
+        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
+
+        Log.d("AllNotifications", "App: $packageName | Title: $title")
+
+        if (isMusicApp(packageName)) {
+            sendFromNotification(sbn)
+        } else if (!title.isNullOrEmpty()) {
+            val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+            MusicDetectionHandler.sendGeneralNotificationEvent(mapOf(
+                "title" to title,
+                "text" to text,
+                "packageName" to packageName
+            ))
+        }
+    }
+
+    private fun isMusicApp(pkg: String): Boolean {
+        // Expand this shi
+        return pkg.contains("spotify") || pkg.contains("music") || pkg.contains("youtube")
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {

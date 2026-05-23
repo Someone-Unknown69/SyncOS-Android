@@ -14,14 +14,17 @@ import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
-import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.acommon.MethodChannel
 import java.io.ByteArrayOutputStream
 
 class MusicDetectionHandler(private val context: Context) {
     private val CHANNEL = "com.example.music_detection"
     private val EVENT_CHANNEL = "com.example.music_detection/events"
     private var mediaSessionManager: MediaSessionManager? = null
-    private var eventSink: EventChannel.EventSink? = null
+
+    private var eventSink: EventChannel.EventSink? = null // for music 
+    private var generalEventSink: EventChannel.EventSink? = null // for notification
+
     private val registeredCallbacks = mutableMapOf<MediaController, MediaController.Callback>()
     
     // Cache to prevent redundant image encoding
@@ -35,6 +38,10 @@ class MusicDetectionHandler(private val context: Context) {
 
         fun sendMusicEvent(musicInfo: Map<String, Any?>) {
             instance?.eventSink?.success(musicInfo)
+        }
+
+        fun sendGeneralNotificationEvent(info: Map<String, Any?>) {
+            instance?.generalEventSink?.success(info)
         }
     }
 
@@ -87,6 +94,17 @@ class MusicDetectionHandler(private val context: Context) {
                 override fun onCancel(arguments: Any?) {
                     eventSink = null
                     unregisterPlaybackCallbacks()
+                }
+            }
+        )
+
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, "com.example.general_notifications/events").setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    generalEventSink = events
+                }
+                override fun onCancel(arguments: Any?) {
+                    generalEventSink = null
                 }
             }
         )

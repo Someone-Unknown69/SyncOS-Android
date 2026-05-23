@@ -38,8 +38,8 @@
             android:value="2" />
 
         <service
-            android:name=".MusicNotificationListenerService"
-            android:label="Music Notification Listener"
+            android:name=".GlobalNotificationListener"
+            android:label="SyncOS Notification Listener"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
             android:exported="true">
             <intent-filter>
