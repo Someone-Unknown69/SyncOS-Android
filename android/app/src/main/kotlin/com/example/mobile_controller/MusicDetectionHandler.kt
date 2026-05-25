@@ -14,20 +14,18 @@ import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
-import io.flutter.plugin.acommon.MethodChannel
+import io.flutter.plugin.common.MethodChannel
 import java.io.ByteArrayOutputStream
 
 class MusicDetectionHandler(private val context: Context) {
     private val CHANNEL = "com.example.music_detection"
     private val EVENT_CHANNEL = "com.example.music_detection/events"
     private var mediaSessionManager: MediaSessionManager? = null
-
-    private var eventSink: EventChannel.EventSink? = null // for music 
-    private var generalEventSink: EventChannel.EventSink? = null // for notification
-
+    private var eventSink: EventChannel.EventSink? = null
     private val registeredCallbacks = mutableMapOf<MediaController, MediaController.Callback>()
     
-    // Cache to prevent redundant image encoding
+    private val listenerComponent = ComponentName(context, MusicNotificationListenerService::class.java)
+    
     private var cachedAlbumArt: String? = null
     private var cachedMetadataId: String? = null
 
@@ -38,10 +36,6 @@ class MusicDetectionHandler(private val context: Context) {
 
         fun sendMusicEvent(musicInfo: Map<String, Any?>) {
             instance?.eventSink?.success(musicInfo)
-        }
-
-        fun sendGeneralNotificationEvent(info: Map<String, Any?>) {
-            instance?.generalEventSink?.success(info)
         }
     }
 
@@ -54,7 +48,7 @@ class MusicDetectionHandler(private val context: Context) {
             when (call.method) {
                 "initializeMusicDetection" -> {
                     initializeMusicDetection()
-                    result.success(mapOf("permissionGranted" to isNotificationListenerEnabled()))
+                    result.success(isNotificationListenerEnabled())
                 }
                 "getCurrentMusicInfo" -> {
                     result.success(getCurrentMusicInfo())
@@ -63,21 +57,17 @@ class MusicDetectionHandler(private val context: Context) {
                     openNotificationSettings()
                     result.success(true)
                 }
-                "playPause" -> {
-                    sendMediaCommand("playPause")
-                    result.success(true)
-                }
-                "next" -> {
-                    sendMediaCommand("next")
-                    result.success(true)
-                }
-                "previous" -> {
-                    sendMediaCommand("previous")
+                "playPause", "next", "previous" -> {
+                    sendMediaCommand(call.method)
                     result.success(true)
                 }
                 "seek" -> {
                     val position = call.argument<Number>("position")?.toLong() ?: 0L
                     sendMediaCommand("seek", position)
+                    result.success(true)
+                }
+                "dispose" -> {
+                    dispose()
                     result.success(true)
                 }
                 else -> result.notImplemented()
@@ -97,22 +87,13 @@ class MusicDetectionHandler(private val context: Context) {
                 }
             }
         )
-
-        EventChannel(flutterEngine.dartExecutor.binaryMessenger, "com.example.general_notifications/events").setStreamHandler(
-            object : EventChannel.StreamHandler {
-                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                    generalEventSink = events
-                }
-                override fun onCancel(arguments: Any?) {
-                    generalEventSink = null
-                }
-            }
-        )
     }
 
     private fun initializeMusicDetection() {
         try {
-            mediaSessionManager = context.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
+            if (mediaSessionManager == null) {
+                mediaSessionManager = context.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
+            }
         } catch (e: Exception) {
             Log.e("MusicDetection", "Failed to get MediaSessionManager: ${e.message}")
         }
@@ -123,7 +104,6 @@ class MusicDetectionHandler(private val context: Context) {
         val artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: "Unknown"
         val currentId = "$title-$artist"
 
-        // Return cached art if it's the same song
         if (currentId == cachedMetadataId) {
             return cachedAlbumArt
         }
@@ -136,10 +116,9 @@ class MusicDetectionHandler(private val context: Context) {
                 val baos = ByteArrayOutputStream()
                 val scale = Math.min(300f / bitmap.width, 300f / bitmap.height)
                 val scaled = if (scale < 1) Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true) else bitmap
-                scaled.compress(Bitmap.CompressFormat.JPEG, 70, baos) // Slightly lower quality for much faster speed
+                scaled.compress(Bitmap.CompressFormat.JPEG, 70, baos)
                 val encoded = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
                 
-                // Update cache
                 cachedMetadataId = currentId
                 cachedAlbumArt = encoded
                 return encoded
@@ -152,11 +131,12 @@ class MusicDetectionHandler(private val context: Context) {
     }
 
     internal fun registerPlaybackCallbacks() {
-        if (!isNotificationListenerEnabled() || mediaSessionManager == null) return
+        val managerCopy = mediaSessionManager
+        if (!isNotificationListenerEnabled() || managerCopy == null) return
         unregisterPlaybackCallbacks()
+        
         try {
-            val componentName = ComponentName(context, MusicNotificationListenerService::class.java)
-            val controllers = mediaSessionManager!!.getActiveSessions(componentName)
+            val controllers = managerCopy.getActiveSessions(listenerComponent)
             for (controller in controllers) {
                 val callback = object : MediaController.Callback() {
                     override fun onPlaybackStateChanged(state: PlaybackState?) {
@@ -196,28 +176,27 @@ class MusicDetectionHandler(private val context: Context) {
     }
 
     private fun openNotificationSettings() {
-        val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
         context.startActivity(intent)
     }
 
     private fun sendMediaCommand(command: String, position: Long = 0L) {
-        if (!isNotificationListenerEnabled() || mediaSessionManager == null) return
+        val managerCopy = mediaSessionManager
+        if (!isNotificationListenerEnabled() || managerCopy == null) return
         try {
-            val componentName = ComponentName(context, MusicNotificationListenerService::class.java)
-            val controllers = mediaSessionManager!!.getActiveSessions(componentName)
+            val controllers = managerCopy.getActiveSessions(listenerComponent)
             if (controllers.isNotEmpty()) {
-                var targetController = controllers.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
-                if (targetController == null) {
-                    targetController = controllers.first()
-                }
+                val targetController = controllers.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING } ?: controllers.first()
 
                 when (command) {
                     "playPause" -> {
+                        val transport = targetController.transportControls
                         if (targetController.playbackState?.state == PlaybackState.STATE_PLAYING) {
-                            targetController.transportControls.pause()
+                            transport.pause()
                         } else {
-                            targetController.transportControls.play()
+                            transport.play()
                         }
                     }
                     "next" -> targetController.transportControls.skipToNext()
@@ -233,20 +212,14 @@ class MusicDetectionHandler(private val context: Context) {
     private fun getCurrentMusicInfo(): Map<String, Any?> {
         val result = mutableMapOf<String, Any?>(
             "permissionGranted" to isNotificationListenerEnabled(),
-            "isPlaying" to false,
-            "title" to null,
-            "artist" to null,
-            "album" to null,
-            "packageName" to null,
-            "duration" to null,
-            "currentPosition" to null,
-            "albumArtBase64" to null
+            "isPlaying" to false, "title" to null, "artist" to null, "album" to null,
+            "packageName" to null, "duration" to null, "currentPosition" to null, "albumArtBase64" to null
         )
 
-        if (isNotificationListenerEnabled() && mediaSessionManager != null) {
+        val managerCopy = mediaSessionManager
+        if (isNotificationListenerEnabled() && managerCopy != null) {
             try {
-                val componentName = ComponentName(context, MusicNotificationListenerService::class.java)
-                val controllers = mediaSessionManager!!.getActiveSessions(componentName)
+                val controllers = managerCopy.getActiveSessions(listenerComponent)
                 for (controller in controllers) {
                     val metadata = controller.metadata
                     val playbackState = controller.playbackState
@@ -270,7 +243,17 @@ class MusicDetectionHandler(private val context: Context) {
                 Log.e("MusicDetection", "Error reading sessions: ${e.message}")
             }
         }
-
         return result
+    }
+
+    fun dispose() {
+        Log.d("MusicDetection", "Disposing handler context resources")
+        unregisterPlaybackCallbacks()
+        eventSink = null
+        cachedAlbumArt = null
+        cachedMetadataId = null
+        if (instance == this) {
+            instance = null
+        }
     }
 }

@@ -82,3 +82,16 @@ class ProgressNotification {
     );
   }
 }
+
+
+// class Notifications {
+
+//   Future<void>
+
+//   final AndroidInitializationSettings initializationSettingsAndroid =
+//     AndroidInitializationSettings('@mipmap/ic_launcher'); // Reference app icon
+
+//   final InitializationSettings initializationSettings = InitializationSettings(
+//     android: initializationSettingsAndroid,
+//   );
+// }

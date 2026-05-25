@@ -13,4 +13,3 @@ class MainActivity : FlutterActivity() {
         musicDetectionHandler.configureFlutterEngine(flutterEngine)
     }
 }
-

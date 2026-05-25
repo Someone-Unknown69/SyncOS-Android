@@ -9,15 +9,46 @@ import android.util.Log
 
 class MusicNotificationListenerService : NotificationListenerService() {
 
+    // When notification is detected we path it either to musichandler or notificationhandler
+    override fun onNotificationPosted(sbn: StatusBarNotification?) {
+        if (sbn == null) return
+        
+        super.onNotificationPosted(sbn)
+
+        val packageName = sbn.packageName
+        val notificationId = sbn.id
+        val extras = sbn.notification?.extras
+
+        val titleText = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: "N/A"
+        val bodyText = extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: "N/A"
+        val templateStyle = extras?.getString(Notification.EXTRA_TEMPLATE) ?: "Standard"
+        val subText = extras?.getString(Notification.EXTRA_SUB_TEXT) ?: "N/A"
+
+        val isMedia = templateStyle == """android.app.Notification${"$"}MediaStyle"""
+
+        if(isMedia) {
+            sendForMusic(sbn)
+        } else {
+            Log.d("NotificationAudit", "========================================")
+            Log.d("NotificationAudit", "Package Name : $packageName (ID: $notificationId)")
+            Log.d("NotificationAudit", "Title Text   : $titleText")
+            Log.d("NotificationAudit", "SubText : $subText")        
+            Log.d("NotificationAudit", "Body Content : $bodyText")
+            Log.d("NotificationAudit", "Layout Style : $templateStyle")
+            Log.d("NotificationAudit", "========================================")
+        }
+    }
+
+
     override fun onListenerConnected() {
         super.onListenerConnected()
-        Log.i("MusicNotification", "Notification listener connected")
+        Log.d("MusicNotification", "Notification listener connected")
         scanActiveNotifications()
     }
 
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
-        Log.i("MusicNotification", "Notification listener disconnected")
+        Log.d("MusicNotification", "Notification listener disconnected")
         MusicDetectionHandler.sendMusicEvent(mapOf(
             "permissionGranted" to false,
             "isPlaying" to false,
@@ -29,34 +60,7 @@ class MusicNotificationListenerService : NotificationListenerService() {
             "currentPosition" to null
         ))
     }
-
-    override fun onNotificationPosted(sbn: StatusBarNotification?) {
-        super.onNotificationPosted(sbn)
-        if (sbn == null) return
-
-        val packageName = sbn.packageName
-        val extras = sbn.notification.extras
-        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
-
-        Log.d("AllNotifications", "App: $packageName | Title: $title")
-
-        if (isMusicApp(packageName)) {
-            sendFromNotification(sbn)
-        } else if (!title.isNullOrEmpty()) {
-            val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
-            MusicDetectionHandler.sendGeneralNotificationEvent(mapOf(
-                "title" to title,
-                "text" to text,
-                "packageName" to packageName
-            ))
-        }
-    }
-
-    private fun isMusicApp(pkg: String): Boolean {
-        // Expand this shi
-        return pkg.contains("spotify") || pkg.contains("music") || pkg.contains("youtube")
-    }
-
+    
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         super.onNotificationRemoved(sbn)
         scanActiveNotifications()
@@ -67,7 +71,7 @@ class MusicNotificationListenerService : NotificationListenerService() {
             val active = activeNotifications ?: return
             var found = false
             for (sbn in active) {
-                if (sendFromNotification(sbn)) {
+                if (sendForMusic(sbn)) {
                     found = true
                     break
                 }
@@ -87,7 +91,7 @@ class MusicNotificationListenerService : NotificationListenerService() {
         }
     }
 
-    private fun sendFromNotification(sbn: StatusBarNotification): Boolean {
+    private fun sendForMusic(sbn: StatusBarNotification): Boolean {
         val notification = sbn.notification ?: return false
         val extras = notification.extras ?: return false
         val title = extras.getString(Notification.EXTRA_TITLE)

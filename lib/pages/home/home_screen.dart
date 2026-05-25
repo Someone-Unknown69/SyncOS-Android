@@ -13,6 +13,7 @@ import '../music/music_player.dart';
 import 'widgets/connection_status.dart';
 import 'widgets/dashboard_grid.dart';
 import 'widgets/transfer_snackbar.dart';
+import '../../core/notification_local.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -64,13 +65,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       label: 'Run Command',
       icon: Icons.terminal,
       onTap: () async {
-        client.send('notification', 'receive', {
-          'app': 'Whatsapp',
-          'body' : 'u got a message nigga',
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-          'color': 0xFF1DB954
-        });
-        // Implementation for Run Command
+        final notif = NotificationLocal();
+        notif.initNotif();
+        notif.displayNotif(
+          id: 100, 
+          title: 'wassup wid it', 
+          body: 'band band skid skid nga'
+        );
       },
     ),
     DashboardItem(
