@@ -5,7 +5,13 @@ final FlutterLocalNotificationsPlugin localNotif = FlutterLocalNotificationsPlug
 class NotificationLocal {
     Future<void> initNotif() async {
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    await localNotif.initialize(const InitializationSettings(android: androidInit));
+
+    await localNotif.initialize(
+      settings: const InitializationSettings(android: androidInit),
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+
+      }
+    );
 
     const channel = AndroidNotificationChannel(
       'test_notif', // ID
@@ -31,11 +37,12 @@ class NotificationLocal {
     );
 
     await localNotif.show(
-      id, 
-      title, 
-      body, 
-      NotificationDetails(android: androidDetails)
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: NotificationDetails(android: androidDetails)
     );
+
   }
 
 }

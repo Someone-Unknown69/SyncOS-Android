@@ -29,13 +29,7 @@ class MusicNotificationListenerService : NotificationListenerService() {
         if(isMedia) {
             sendForMusic(sbn)
         } else {
-            Log.d("NotificationAudit", "========================================")
-            Log.d("NotificationAudit", "Package Name : $packageName (ID: $notificationId)")
-            Log.d("NotificationAudit", "Title Text   : $titleText")
-            Log.d("NotificationAudit", "SubText : $subText")        
-            Log.d("NotificationAudit", "Body Content : $bodyText")
-            Log.d("NotificationAudit", "Layout Style : $templateStyle")
-            Log.d("NotificationAudit", "========================================")
+            sendForNotification(sbn)
         }
     }
 
@@ -90,6 +84,35 @@ class MusicNotificationListenerService : NotificationListenerService() {
             }
         }
     }
+
+    private fun sendForNotification(sbn: StatusBarNotification): Boolean {
+        val notification = sbn.notification ?: return false
+        val extras = notification.extras ?: return false
+
+        val titleText = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
+        val bodyText = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+        val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()
+
+        if (titleText.isNullOrEmpty() && bodyText.isNullOrEmpty()) {
+            return false
+        }
+
+        val payload = hashMapOf(
+            "permissionGranted" to true,
+            "titleText" to titleText,
+            "bodyText" to bodyText,
+            "subText" to subText,
+            "packageName" to sbn.packageName
+        )
+
+        val intent = Intent("com.example.mobile_controller.NEW_NOTIFICATION").apply {
+            putExtra("notification_data", payload)
+        }
+
+        sendBroadcast(intent)
+        return true
+    }
+
 
     private fun sendForMusic(sbn: StatusBarNotification): Boolean {
         val notification = sbn.notification ?: return false

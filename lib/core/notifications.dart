@@ -6,7 +6,13 @@ final FlutterLocalNotificationsPlugin localNotif = FlutterLocalNotificationsPlug
 class ProgressNotification {
   Future<void> initNotif() async {
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    await localNotif.initialize(const InitializationSettings(android: androidInit));
+
+    await localNotif.initialize(
+      settings: const InitializationSettings(android: androidInit),
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+
+      }
+    );
 
     const channel = AndroidNotificationChannel(
       'basic_channel', // ID
@@ -49,10 +55,10 @@ class ProgressNotification {
     );
 
     await localNotif.show(
-      id,
-      title,
-      body,
-      NotificationDetails(android: androidDetails),
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: NotificationDetails(android: androidDetails)
     );
   }
 
@@ -75,23 +81,11 @@ class ProgressNotification {
     );
 
     await localNotif.show(
-      id,
-      'Transfer Failed',
-      '$fileName: $error',
-      NotificationDetails(android: androidDetails),
+      id: id,
+      title: 'Transfer Failed',
+      body: '$fileName: $error',
+      notificationDetails: NotificationDetails(android: androidDetails)
     );
   }
 }
 
-
-// class Notifications {
-
-//   Future<void>
-
-//   final AndroidInitializationSettings initializationSettingsAndroid =
-//     AndroidInitializationSettings('@mipmap/ic_launcher'); // Reference app icon
-
-//   final InitializationSettings initializationSettings = InitializationSettings(
-//     android: initializationSettingsAndroid,
-//   );
-// }

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:mobile_controller/services/socket_client.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:volume_controller/volume_controller.dart';
 
 // -------------------------------      Battery Service      ----------------------------------------
 class BatteryMonitorService{
@@ -56,14 +55,3 @@ class BatteryMonitorService{
 
 // -------------------------------      Volume Service      ----------------------------------------
 
-class VolumeMonitorService {
-  Future<double> getCurrentVolume() async => await VolumeController().getVolume();
-  void listenToVolume(Function(double) onVolumeChanged) {
-    VolumeController().listener((volume) {
-      onVolumeChanged(volume);
-    });
-  }
-
-  void setVolume(double value) => VolumeController().setVolume(value);
-
-}

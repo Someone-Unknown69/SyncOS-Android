@@ -4,9 +4,11 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+
 import 'handle_request.dart';
 import 'music.dart';
 import 'device_info.dart';
+import 'notifications.dart';
 
 enum SocketConnectionState { disconnected, connecting, connected, reconnecting }
 
@@ -39,6 +41,7 @@ class SocketClient extends ChangeNotifier{
   final batteryMonitor = BatteryMonitorService();
   final requestHandler = HandleRequest();
   final music = MediaPoller();
+  final notification = NotificationReciever();
 
   // ----------------------------    Connection Information    --------------------------------------
   final ValueNotifier<bool> isCharging = ValueNotifier<bool>(false);
@@ -63,8 +66,8 @@ class SocketClient extends ChangeNotifier{
     }
 
     await _attemptConnection();
-    music.init();
-    batteryMonitor.init();
+    
+    await _startServices();
   }
   
   Future<void> _attemptConnection() async {
@@ -73,7 +76,7 @@ class SocketClient extends ChangeNotifier{
     connectionStatus.value = _isReconnecting ? SocketConnectionState.reconnecting : SocketConnectionState.connecting;
     
     try {
-      debugPrint('Connecting to $_host:$_port...');
+      debugPrint('[Socket] Connecting to $_host:$_port...');
       _socket = await Socket.connect(_host, _port!, timeout: const Duration(seconds: 5));
       _socket!.setOption(SocketOption.tcpNoDelay, true);
       _buffer.clear();
@@ -108,7 +111,7 @@ class SocketClient extends ChangeNotifier{
                   _isReconnecting = false;
                   _retryCount = 0;
                   _startHeartbeat();
-                  debugPrint('Connection accepted.');
+                  debugPrint('[Socket] Connection accepted.');
                 } else {
                   _triggerReconnect();
                 }
@@ -126,17 +129,17 @@ class SocketClient extends ChangeNotifier{
           }
         },
         onError: (e) {
-          debugPrint("Socket error: $e");
+          debugPrint("[Socket]Socket error: $e");
           _triggerReconnect();
         },
         onDone: () {
-          debugPrint("Connection closed by server.");
+          debugPrint("[Socket] Connection closed by server.");
           _triggerReconnect();
         },
       );
 
     } catch (e) {
-      debugPrint('Error while connecting: $e');
+      debugPrint('[Socket] Error while connecting: $e');
       _triggerReconnect();
     }
   }
@@ -152,7 +155,7 @@ class SocketClient extends ChangeNotifier{
     final jitter = Random().nextDouble() * 1.0;
     final totalWait = waitSeconds + jitter;
     
-    debugPrint("Reconnecting in ${totalWait.toStringAsFixed(1)}s...");
+    debugPrint("[Socket] Reconnecting in ${totalWait.toStringAsFixed(1)}s...");
     
     Future.delayed(Duration(milliseconds: (totalWait * 1000).toInt()), () {
       if (_isReconnecting) {
@@ -169,7 +172,7 @@ class SocketClient extends ChangeNotifier{
         _sendRaw('PING');
         _pongTimeoutTimer?.cancel();
         _pongTimeoutTimer = Timer(const Duration(seconds: 15), () {
-          debugPrint("Heartbeat timeout. Connection dead.");
+          debugPrint("[Socket] Heartbeat timeout. Connection dead.");
           _triggerReconnect();
         });
       }
@@ -177,23 +180,51 @@ class SocketClient extends ChangeNotifier{
   }
 
   // Method to disconnect manually
-  void handleDisconnect() {
+  Future<void> handleDisconnect() async{
     _isReconnecting = false;
     _host = null;
     _port = null;
-    _cleanupConnection();
+
+    await _stopServices();
+
+    await _cleanupConnection();
     connectionStatus.value = SocketConnectionState.disconnected;
   }
 
-  void _cleanupConnection() {
+  Future<void> _cleanupConnection() async {
     _heartbeatTimer?.cancel();
     _pongTimeoutTimer?.cancel();
     _subscription?.cancel();
     _subscription = null;
     _socket?.destroy();
     _socket = null;
-
   }
+
+
+  // --------------------------    Initializing all services    -------------------------------------
+  Future<void> _startServices() async {
+    try {
+      music.init();
+      batteryMonitor.init();
+      notification.init();
+      debugPrint('[Socket] Services started successfully');
+    } catch (e) {
+      debugPrint('[Socket] Error in starting servies : $e');
+    }
+  }
+
+  Future<void> _stopServices() async {
+    try {
+      music.stopMusicSubscription();
+      batteryMonitor.dispose();
+      notification.dispose();
+      debugPrint('[Socket] Services stopped successfully');
+    } catch (e) {
+      debugPrint('[Socket] Error in stopping servies : $e');
+    }
+  }
+
+  // ----------------------------    handling + sending commands    -------------------------------
 
   
 
@@ -207,7 +238,7 @@ class SocketClient extends ChangeNotifier{
     try {
       requestHandler.handle(rawJson);
     } catch (e) {
-      debugPrint('Data processing error: $e');
+      debugPrint('[Socket] Data processing error: $e');
     }
   }
 
@@ -220,7 +251,7 @@ class SocketClient extends ChangeNotifier{
         _socket!.add(lengthBytes.buffer.asUint8List());
         _socket!.add(jsonData);
       } catch (e) {
-        debugPrint('Send error: $e');
+        debugPrint('[Socket] Send error: $e');
       }
     }
   }
@@ -244,8 +275,7 @@ class SocketClient extends ChangeNotifier{
       _socket!.add(lengthBytes.buffer.asUint8List());
       _socket!.add(jsonData);
     } catch (e) {
-      debugPrint('Send error: $e');
-      handleDisconnect();
+      debugPrint('[Socket] Send error: $e');
     }
   }
 
