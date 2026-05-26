@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'socket_client.dart';
+import '../core/globals.dart';
 
 class NotificationReciever {
   static const MethodChannel _methodChannel = MethodChannel('com.example.notification_detection');
@@ -49,7 +49,7 @@ class NotificationReciever {
       final String appSub = data['subText'] ?? '';
       final String pkgName = data['packageName'] ?? 'Unknown Package';
 
-      SocketClient.instance.send(
+      client.send(
         'notification', 
         'receive', 
         {

@@ -97,6 +97,14 @@ class MusicNotificationListenerService : NotificationListenerService() {
             return false
         }
 
+        val isOngoing = (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
+        val isNoClear = (sbn.notification.flags and Notification.FLAG_NO_CLEAR) != 0
+
+        if (isOngoing || isNoClear) {
+            Log.d("Notification", "This is a sticky/persistent notification, ignoring.")
+            return false
+        }
+
         val payload = hashMapOf(
             "permissionGranted" to true,
             "titleText" to titleText,

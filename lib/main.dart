@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/globals.dart';
-import 'pages/home/home_screen.dart';
+import 'pages/main_layout/main_layout.dart';
 import 'services/pairing_screen.dart';
 import 'services/storage_service.dart';
 import 'theme/app_theme.dart';
@@ -21,11 +21,11 @@ class RemoteControllerApp extends StatelessWidget {
     return MaterialApp(
       title: 'SyncOS',
       scaffoldMessengerKey: snackbarKey,
-      debugShowCheckedModeBanner: false,      // Hides the debug banner
+      debugShowCheckedModeBanner: false,
       theme: buildTheme(Brightness.light),
       darkTheme: buildTheme(Brightness.dark),
-      themeMode: ThemeMode.system,            // Forces app to use system mode as theme
-      home: hasPaired ? const HomeScreen() : const PairingScreen(),
+      themeMode: ThemeMode.system,
+      home: hasPaired ? const MainScreen() : const PairingScreen(),
     );
   }
 }

@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:io';
-import '../../services/socket_client.dart';
+import '../../../services/socket_client.dart';
 import 'dart:math';
-import '../../theme/app_theme.dart';
-import '../../core/globals.dart'; // To access the global processor
+import '../../../theme/app_theme.dart';
+import '../../../core/globals.dart'; // To access the global processor
 
 // -------------------------------      Music Widget     -------------------------------------------
 

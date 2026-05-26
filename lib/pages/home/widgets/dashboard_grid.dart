@@ -13,16 +13,16 @@ class DashboardGrid extends StatelessWidget {
       builder: (context, constraints) {
         final isDesktop = constraints.maxWidth > 600;
       
-        // Using a Grid for both, but changing column count makes it look like a list on desktop
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: items.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: isDesktop ? 1 : 2, // 1 column for list look, 2 for grid
-            mainAxisExtent: isDesktop ? 65 : 100, // Height of the item
-            crossAxisSpacing: AppTheme.spacing / 2,
-            mainAxisSpacing: AppTheme.spacing / 2,
+            crossAxisCount: isDesktop ? 1 : 2,
+            mainAxisExtent: isDesktop ? 65 : 100,
+            // Increased the dividing gap spacing coefficients here
+            crossAxisSpacing: AppTheme.spacing, 
+            mainAxisSpacing: AppTheme.spacing,
           ),
           itemBuilder: (context, index) {
             return DashboardCard(item: items[index], isDesktop: isDesktop);
@@ -41,52 +41,66 @@ class DashboardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
+    return Ink(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-        side: BorderSide(color: colorScheme.outlineVariant),
       ),
-      clipBehavior: Clip.antiAlias,
+
       child: InkWell(
         onTap: item.onTap,
+        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+        splashColor: colorScheme.primary.withValues(alpha: 0.1), 
+        highlightColor: Colors.transparent,
         child: Padding(
-          padding: const EdgeInsets.all(12.0),
+          padding: const EdgeInsets.all(AppTheme.padding),
           child: !isDesktop 
-            // For grid 
+            // Mobile Grid Cell
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Icon(item.icon, size: 24, color: colorScheme.primary),
-                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(AppTheme.spacing * 0.4),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(item.icon, size: 22, color: colorScheme.primary),
+                  ),
                   Text(
                     item.label,
                     style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface,
                     ),
                   ),
                 ],
               )
-            // For list
+            // Desktop List Row
             : Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
                     children: [
-                      Icon(item.icon, color: colorScheme.primary, size: 22),
-                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.all(AppTheme.spacing * 0.4),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(item.icon, size: 20, color: colorScheme.primary),
+                      ),
+                      const SizedBox(width: AppTheme.spacing),
                       Text(
                         item.label,
                         style: TextStyle(
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w600,
                           fontSize: 14,
-                          color: colorScheme.onSurfaceVariant,
+                          color: colorScheme.onSurface,
                         ),
                       ),
                     ]
@@ -94,7 +108,7 @@ class DashboardCard extends StatelessWidget {
                   Icon(
                     Icons.chevron_right_rounded, 
                     size: 18, 
-                    color: colorScheme.outline,
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                   ),
                 ],
               )

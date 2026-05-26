@@ -9,11 +9,12 @@ import '../../services/storage_service.dart';
 import '../../services/pairing_screen.dart';
 import '../../theme/app_theme.dart';
 import '../gamepad/gamepad_screen.dart';
-import '../music/music_player.dart';
+import 'widgets/music_player.dart';
 import 'widgets/connection_status.dart';
 import 'widgets/dashboard_grid.dart';
 import 'widgets/transfer_snackbar.dart';
 import '../../core/notification_local.dart';
+import 'widgets/header.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -70,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         notif.displayNotif(
           id: 100, 
           title: 'wassup wid it', 
-          body: 'band band skid skid nga'
+          body: 'bang bang skid skid nga'
         );
       },
     ),
@@ -130,60 +131,67 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    //GestureDetector handles tapping "empty space" to hide keyboard
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       behavior: HitTestBehavior.translucent, 
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text("SyncOS"),
-        ),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Padding(
-              padding: const EdgeInsets.all(AppTheme.padding),
-              child: ValueListenableBuilder<SocketConnectionState>(
-                valueListenable: client.connectionStatus,
-                builder: (context, connectionStatus, child) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (connectionStatus == SocketConnectionState.connected) ...[
-                        const StatusConnected(),
-                        const SizedBox(height: AppTheme.spacing),
+        body: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: Padding(
+            padding: const EdgeInsets.only(
+            left: AppTheme.padding,
+            right: AppTheme.padding,
+            bottom: AppTheme.padding,
+            top: AppTheme.padding * 3, 
+          ),
+            child: ValueListenableBuilder<SocketConnectionState>(
+              valueListenable: client.connectionStatus,
+              builder: (context, connectionStatus, child) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (connectionStatus == SocketConnectionState.connected) ...[
+                      const Header(),
+        
+                      DashboardGrid(items: _items),
+                      const SizedBox(height: AppTheme.spacing),
+        
+                      ValueListenableBuilder(
+                        valueListenable: processor.metadata, 
+                        builder: (context, info, child) {
+                          final bool isUnknown = info.title.toLowerCase() == 'unknown' || 
+                                                info.artist.toLowerCase() == 'unknown' ||
+                                                info.title.isEmpty || 
+                                                info.artist.isEmpty;
 
-                        ValueListenableBuilder(
-                          valueListenable: processor.metadata, 
-                          builder: (context, info, child) {
-                            return MusicPlayerWidget(
-                              imagePath: info.albumArt,
-                              trackName: info.title,
-                              artistName: info.artist,
-                              position: info.position,
-                              duration: info.duration,
-                              status: info.status,
-                              albumArtBase64: "", // Not used directly in base64 anymore
-                              client: client, // Pass client for seek ops
-                            );
-                          },
-                        ),
+                          if (isUnknown) {
+                            return const SizedBox.shrink();
+                          }
 
-                        const SizedBox(height: AppTheme.spacing),
-                        DashboardGrid(items: _items),
-                        
-                      ] else if (connectionStatus == SocketConnectionState.connecting) ...[
-                        const StatusWaiting(message: 'Connecting to Server...'),
-                      ] else if (connectionStatus == SocketConnectionState.reconnecting) ...[
-                        const StatusWaiting(message: 'Connection lost. Reconnecting...'),
-                      ] else ...[
-                        StatusDisconnected(onReconnect: _handleConnect),
-                      ]
-                    ],
-                  );
-                },
-              ),
+                          return MusicPlayerWidget(
+                            imagePath: info.albumArt,
+                            trackName: info.title,
+                            artistName: info.artist,
+                            position: info.position,
+                            duration: info.duration,
+                            status: info.status,
+                            albumArtBase64: "",
+                            client: client,
+                          );
+                        },
+                      ),
+        
+                      
+                    ] else if (connectionStatus == SocketConnectionState.connecting) ...[
+                      const StatusWaiting(message: 'Connecting to Server...'),
+                    ] else if (connectionStatus == SocketConnectionState.reconnecting) ...[
+                      const StatusWaiting(message: 'Connection lost. Reconnecting...'),
+                    ] else ...[
+                      StatusDisconnected(onReconnect: _handleConnect),
+                    ]
+                  ],
+                );
+              },
             ),
           ),
         ),
