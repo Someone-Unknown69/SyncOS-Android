@@ -152,19 +152,20 @@ class MediaPoller {
   }
 
   // this updates and changes metadata
-  void _updateMetadata(Map<String, dynamic> info) {
+  Future<void> _updateMetadata(Map<String, dynamic> info) async {
     final title = info['title'] ?? 'Unknown';
     final artist = info['artist'] ?? 'Unknown Artist';
     final duration = ((info['duration'] as int?) ?? 0) ~/ 1000;
-    
+    final albumArtBase64 = info['albumArtBase64'];
     // Ignore updates with missing data or 0 duration
     if (title == 'Unknown' || title.isEmpty || duration == 0) return;
 
     if (!_hasChanged(info)) return;
-
+    
     final currentIdentity = "$title-$artist";
-    final isNewSong = currentIdentity != _cache.lastTrackIdentity;
 
+    final isOld = ((currentIdentity == _cache.lastTrackIdentity) && albumArtBase64 != null);
+    
     _cache.update(info, currentIdentity);
 
     final metadata = MediaInfo(
@@ -174,7 +175,7 @@ class MediaPoller {
       artist: artist,
       duration: duration,
       position: ((info['currentPosition'] as int?) ?? 0) ~/ 1000,
-      albumArtBase64: info['albumArtBase64'] as String? ?? 'N/A',
+      albumArtBase64: albumArtBase64 as String? ?? 'N/A',
     );
 
     if (metadata.status) {
@@ -183,19 +184,15 @@ class MediaPoller {
       debugPrint('[Music Handling] Playback paused or stopped');
     }
 
-    // send updated metadata to server
     final map = metadata.toMap();
-    
-    // Only include the heavy album art in the socket message if the song has actually changed
-    // AND we haven't successfully sent art for this song yet.
-    if (isNewSong && metadata.albumArtBase64 != 'N/A') {
+    if (!isOld && metadata.albumArtBase64 != 'N/A') {
       map['albumArt'] = metadata.albumArtBase64;
     }
 
     SocketClient.instance.send('music', 'update_metadata', map);
-
     onMediaUpdate?.call(metadata);
   }
+
 
   void control(Map<String, dynamic> args) {
     _control(args);

@@ -140,20 +140,11 @@ class MusicDetectionHandler(private val context: Context) {
             for (controller in controllers) {
                 val callback = object : MediaController.Callback() {
                     override fun onPlaybackStateChanged(state: PlaybackState?) {
-                        val metadata = controller.metadata ?: return
-                        val title = metadata.getString(MediaMetadata.METADATA_KEY_TITLE) ?: return
-                        sendMusicEvent(mapOf(
-                            "permissionGranted" to true,
-                            "isPlaying" to (state?.state == PlaybackState.STATE_PLAYING),
-                            "title" to title,
-                            "artist" to metadata.getString(MediaMetadata.METADATA_KEY_ARTIST),
-                            "album" to metadata.getString(MediaMetadata.METADATA_KEY_ALBUM),
-                            "packageName" to controller.packageName,
-                            "duration" to if (metadata.containsKey(MediaMetadata.METADATA_KEY_DURATION))
-                                metadata.getLong(MediaMetadata.METADATA_KEY_DURATION) else null,
-                            "currentPosition" to state?.position,
-                            "albumArtBase64" to getAlbumArtBase64(metadata)
-                        ))
+                        emitMetadata(controller, state)
+                    }
+
+                    override fun onMetadataChanged(metadata: MediaMetadata?) {
+                        emitMetadata(controller, controller.playbackState)
                     }
                 }
                 controller.registerCallback(callback)
@@ -162,6 +153,36 @@ class MusicDetectionHandler(private val context: Context) {
         } catch (e: Exception) {
             Log.e("MusicDetection", "Error registering callbacks: ${e.message}")
         }
+    }
+
+    private fun emitMetadata(controller: MediaController, state: PlaybackState?, attempt: Int = 0) {
+        val metadata = controller.metadata ?: return
+        
+        var art = getAlbumArtBase64(metadata)
+        
+        // If art is missing and we haven't hit our retry limit (e.g., 5 retries)
+        if (art == null && attempt < 5) {
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                emitMetadata(controller, controller.playbackState, attempt + 1)
+            }, 300) // Poll every 300ms
+        } else {
+            sendMusicEvent(createPayload(controller, state, metadata, art))
+        }
+    }
+
+    private fun createPayload(controller: MediaController, state: PlaybackState?, metadata: MediaMetadata, art: String?): Map<String, Any?> {
+        return mapOf(
+            "permissionGranted" to true,
+            "isPlaying" to (state?.state == PlaybackState.STATE_PLAYING),
+            "title" to metadata.getString(MediaMetadata.METADATA_KEY_TITLE),
+            "artist" to metadata.getString(MediaMetadata.METADATA_KEY_ARTIST),
+            "album" to metadata.getString(MediaMetadata.METADATA_KEY_ALBUM),
+            "packageName" to controller.packageName,
+            "duration" to if (metadata.containsKey(MediaMetadata.METADATA_KEY_DURATION))
+                metadata.getLong(MediaMetadata.METADATA_KEY_DURATION) else null,
+            "currentPosition" to state?.position,
+            "albumArtBase64" to art
+        )
     }
 
     private fun unregisterPlaybackCallbacks() {
