@@ -9,6 +9,6 @@ abstract class IConnectionManager {
   Stream<ConnectionStatus> get connectionStatusStream;
   ConnectionConfig? get activeConfig;
   void send(String op, String action, Map<String, dynamic> args);
-  void connect(ConnectionConfig config, {String? token});
+  Future<void> connect(ConnectionConfig config, {String? token});
   void disconnect();
 }

@@ -1,13 +1,20 @@
 abstract class ConnectionConfig {
-  String get displayName;
+  Map<String, dynamic> get getConfig;
 }
 
 class TcpConfig extends ConnectionConfig {
   final String host;
   final int port;
   TcpConfig({required this.host,required this.port});
+
+  factory TcpConfig.fromAddress(String host, int port) {
+    return TcpConfig(host: host, port: port);
+  }
   
   @override
-  String get displayName => "$host:$port";
+  Map<String, dynamic> get getConfig => {
+    'host' : host,
+    'port' : port,
+  };
 }
 

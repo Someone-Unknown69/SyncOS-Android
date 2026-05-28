@@ -1,0 +1,74 @@
+import 'dart:async';
+import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
+import '../domain/i_notification_receiver.dart';
+
+class NotificationReceiverImpl implements INotificationReceiver{
+  final IConnectionManager _connectionManager;
+  final MethodChannel _methodChannel;
+  final EventChannel _eventChannel;
+
+  StreamSubscription? _notificationSubscription;
+
+  NotificationReceiverImpl({
+    required IConnectionManager connectionManager,
+    MethodChannel? methodChannel,
+    EventChannel? eventChannel,
+  })  : _connectionManager = connectionManager,
+        _methodChannel = methodChannel ?? const MethodChannel('com.example.notification_detection'),
+        _eventChannel = eventChannel ?? const EventChannel('com.example.notification_detection/events');
+
+
+  @override
+  Future<void> init() async {
+    if (_notificationSubscription != null) return;
+    
+    final bool hasPermission = await _methodChannel.invokeMethod('initializeNotificationDetection') ?? false;
+
+    if(!hasPermission) {
+      debugPrint('[NotificationReceiver] Permission missing');
+      await _methodChannel.invokeMethod('openNotificationSettings');
+      return;
+    }
+
+    _notificationSubscription = _eventChannel.receiveBroadcastStream().listen(
+      (dynamic event) => _handleNotification(Map<String, dynamic>.from(event)),
+      onError: (e) => debugPrint('[NotificationReceiver] Stream error: $e'),
+    );
+  }
+
+  void _handleNotification(Map<String, dynamic> data) {
+    try {
+      final DateTime timestamp = DateTime.now();
+      
+      final String appTitle = data['titleText'] ?? 'Unknown Sender';
+      final String appBody = data['bodyText'] ?? '';
+      final String appSub = data['subText'] ?? '';
+      final String pkgName = data['packageName'] ?? 'Unknown Package';
+
+      _connectionManager.send(
+        'notification', 
+        'receive', 
+        {
+          'app': appTitle,
+          'timestamp': timestamp.toIso8601String(),
+          'body': appBody,
+          'color': null,
+          'subText': appSub,
+          'packageName': pkgName,
+        }
+      );
+      debugPrint('[NotificationReceiver] Notification sent to server');
+    } catch (e) {
+      debugPrint('[NotificationReceiver] Error formatting payload: $e');
+    }
+  }
+
+  @override
+  Future<void> dispose() async {
+    await _notificationSubscription?.cancel();
+    _notificationSubscription = null;
+    await _methodChannel.invokeMethod('dispose').catchError((e) => debugPrint('$e'));
+  }
+}
