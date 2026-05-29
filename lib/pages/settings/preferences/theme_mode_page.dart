@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_controller/theme/app_theme.dart';
+import 'package:mobile_controller/theme/theme_notifier.dart';
+import 'widgets/color_picker.dart';
 
-class ThemeSettings extends StatelessWidget {
-  const ThemeSettings({super.key});
-
+class ThemeModePage extends ConsumerWidget {
+  const ThemeModePage({super.key});
+  
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -29,7 +32,9 @@ class ThemeSettings extends StatelessWidget {
               trailing: Switch(
                 value: theme.brightness == Brightness.dark,
                 onChanged: (bool value) {
-                  // TODO: Call Theme Provider here
+                  ref.read(themeProvider.notifier).updateThemeMode(
+                    value ? ThemeMode.dark : ThemeMode.light
+                  );
                 },
               ),
             ),
@@ -39,7 +44,7 @@ class ThemeSettings extends StatelessWidget {
               icon: Icons.color_lens_rounded,
               title: 'App Theme',
               subtitle: 'Select your preferred accent color',
-              onTap: () => _showColorPicker(context),
+              onTap: () => _showColorPicker(context, ref),
             ),
 
             // Font Selection
@@ -92,7 +97,23 @@ class ThemeSettings extends StatelessWidget {
     );
   }
 
+  void _showColorPicker(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+        child: HorizontalColorPicker(
+          selectedColor: ref.watch(themeProvider).seedColor,
+          onColorSelected: (color) {
+            ref.read(themeProvider.notifier).updateSeedColor(color);
+            Navigator.pop(context);
+          },
+        ),
+      ),
+    );
+  }
+
   // Placeholder methods for selection logic
-  void _showColorPicker(BuildContext context) { /* Show Modal Bottom Sheet */ }
   void _showFontPicker(BuildContext context) { /* Show Modal Bottom Sheet */ }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_controller/core/notification/data/notification_service_impl.dart';
 import 'package:mobile_controller/core/notification/provider/notification_provider.dart';
+import 'package:mobile_controller/theme/theme_notifier.dart';
 
 import 'core/config/app_router.dart';
 import 'core/config/app_routes.dart';
@@ -39,6 +40,7 @@ class RemoteControllerApp extends ConsumerWidget {
     ref.watch(connectionManagerProvider);     // Connection manager
     ref.watch(serviceCoordinatorProvider);    // Orchestrates background services
     ref.watch(commandDispatcherProvider);     // routes rawMessageStream -> state
+    final themeSettings = ref.watch(themeProvider);
 
     final bool hasPaired = StorageService.hasPaired;
 
@@ -46,9 +48,9 @@ class RemoteControllerApp extends ConsumerWidget {
       title: 'SyncOS',
       scaffoldMessengerKey: snackbarKey,
       debugShowCheckedModeBanner: false,
-      theme: buildTheme(Brightness.light),
-      darkTheme: buildTheme(Brightness.dark),
-      themeMode: ThemeMode.system,
+      theme: buildTheme(Brightness.light, themeSettings.seedColor),
+      darkTheme: buildTheme(Brightness.dark, themeSettings.seedColor),
+      themeMode: themeSettings.themeMode,
 
       initialRoute: hasPaired ? AppRoutes.mainScreen : AppRoutes.pairingScreen, 
       onGenerateRoute: AppRouter.generateRoute,

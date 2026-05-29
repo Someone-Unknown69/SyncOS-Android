@@ -17,22 +17,19 @@ class AppTheme {
   static const double musicPlayerRadius = 28;
 }
 
-// Theme config
-ThemeData buildTheme(Brightness brightness) {
+ThemeData buildTheme(Brightness brightness, Color seedColor) {
   final baseTheme = ThemeData(
     useMaterial3: true,
     brightness: brightness,
-    colorSchemeSeed: AppTheme.seedColor,
+    colorSchemeSeed: seedColor, 
   );
 
   return baseTheme.copyWith(
-    // Global styling for all TextFields
     inputDecorationTheme: InputDecorationTheme(
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
       ),
     ),
-    // Global styling for all SnackBars
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(

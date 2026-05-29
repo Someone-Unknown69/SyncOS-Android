@@ -5,7 +5,7 @@ import 'package:mobile_controller/pages/home/home_screen.dart';
 import 'package:mobile_controller/pages/gamepad/gamepad_screen.dart';
 import 'package:mobile_controller/pages/settings/settings.dart';
 import 'package:mobile_controller/pages/main_layout/main_layout.dart';
-import 'package:mobile_controller/pages/settings/preferences/theme_mode.dart';
+import 'package:mobile_controller/pages/settings/preferences/theme_mode_page.dart';
 import 'package:mobile_controller/features/pairing/ui/pairing_screen.dart';
 
 class AppRouter {
@@ -23,7 +23,7 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const PairingScreen());
 
       case AppRoutes.themeMode:
-        return MaterialPageRoute(builder: (_) => const ThemeSettings());
+        return MaterialPageRoute(builder: (_) => const ThemeModePage());
 
       default:
         return MaterialPageRoute(
