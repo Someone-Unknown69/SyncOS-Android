@@ -21,14 +21,42 @@ class MediaInfo {
   });
 
   factory MediaInfo.fromMap(Map<String, dynamic> map) {
+    int toInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is double) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    }
+
     return MediaInfo(
       title: map['title'] ?? 'Unknown',
       artist: map['artist'] ?? 'Unknown Artist',
       album: map['album'] ?? 'Unknown',
-      status: map['isPlaying'] == true,
-      position: ((map['currentPosition'] as int?) ?? 0) ~/ 1000,
-      duration: ((map['duration'] as int?) ?? 0) ~/ 1000,
-      albumArtBase64: map['albumArtBase64'] as String? ?? 'N/A',
+      status: map['status'] == 'Playing' || map['status'] == true || map['isPlaying'] == true,
+      position: toInt(map['position'] ?? map['currentPosition']),
+      duration: toInt(map['duration']),
+      albumArtBase64: map['albumArt'] ?? map['albumArtBase64'] ?? 'N/A',
+    );
+  }
+
+  MediaInfo copyWith({
+    String? title,
+    String? artist,
+    String? album,
+    bool? status,
+    int? position,
+    int? duration,
+    String? albumArtBase64,
+  }) {
+    return MediaInfo(
+      title: title ?? this.title,
+      artist: artist ?? this.artist,
+      album: album ?? this.album,
+      status: status ?? this.status,
+      position: position ?? this.position,
+      duration: duration ?? this.duration,
+      albumArtBase64: albumArtBase64 ?? this.albumArtBase64,
     );
   }
 

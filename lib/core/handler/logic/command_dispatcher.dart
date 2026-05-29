@@ -1,12 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:mobile_controller/features/music/provider/remote_media_state.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
-import 'package:mobile_controller/features/device_info/provider/device_info_notifier.dart';
-import 'package:mobile_controller/features/battery/provider/battery_notifier.dart';
+import 'package:mobile_controller/features/device_info/provider/remote_device_info_state.dart';
+import 'package:mobile_controller/features/battery/provider/remote_battery_state.dart';
 import 'package:mobile_controller/features/file_transfer/data/file_transfer_service.dart';
-import 'package:mobile_controller/features/music/domain/i_media_service.dart';
+import 'package:mobile_controller/features/music/domain/i_local_media_sender.dart';
 
 class CommandDispatcher {
   final Ref ref;
@@ -35,9 +36,9 @@ class CommandDispatcher {
       switch(operation) {
         case 'music':
           if(action == 'update_metadata') {
-            // ref.read(mediaServiceProvider.notifier)
+            ref.read(musicProvider.notifier).updateMetadata(args);
           } else if (action == 'control') {
-            _mediaService.sendControlCommand(action, args);
+            _mediaService.sendControlCommand(args);
           }
           break;
         case 'battery_info':
@@ -52,7 +53,9 @@ class CommandDispatcher {
         case 'file_transfer':
           if(action == 'receive') {
             _fileTransferService.recieveFile(args);
-          } else if(action == 'send') {} // will add ability to send too in future 
+          } else if(action == 'send') {
+            // will add ability to send file requests in future 
+          } 
           break;
       }
     });

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../services/usb_controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../features/gamepad/data/gamepad_event_sender.dart';
+import '../../core/network/provider/connection_provider.dart';
 import '../../theme/app_theme.dart';
 
 class ControllerPage extends StatelessWidget {
@@ -82,19 +84,20 @@ class ControllerPage extends StatelessWidget {
   }
 }
 
-class GamePage extends StatefulWidget {
+class GamePage extends ConsumerStatefulWidget {
   const GamePage({super.key});
 
   @override
-  State<GamePage> createState() => _GamePageState();
+  ConsumerState<GamePage> createState() => _GamePageState();
 }
 
-class _GamePageState extends State<GamePage> {
-  final _usbControllerService = USBControllerService();
+class _GamePageState extends ConsumerState<GamePage> {
+  late final USBControllerService _usbControllerService;
 
   @override
   void initState() {
     super.initState();
+    _usbControllerService = USBControllerService(ref.read(connectionManagerProvider));
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../../../core/network/domain/i_connection_manager.dart';
@@ -26,53 +27,87 @@ class FileTransferService {
     this._notificationService
   );
 
-  Future<void> sendFile(String filePath, {void Function(double)? onProgress}) async {
+  Future<void> sendFile() async {
+    final filePath = await _fileService.pickFile();
+    if (filePath == null) {
+      debugPrint('[FTP] File selection cancelled');
+      return;
+    }
+    
     final file = File(filePath);
-
-    if(!await file.exists()) return;
+    if (!await file.exists()) return;
 
     final fileName = file.path.split(Platform.pathSeparator).last;
     final fileSize = await file.length();
-
-    // calculate checksum of file
+    
     debugPrint('[FTP] Calculating checksum for $fileName');
     final checksum = await _fileService.calculateChecksum(file.path);
 
-    final (sink, connectionInfo) = await _fileTransferManager.send();
+    final (socketFuture, connectionInfo) = await _fileTransferManager.send();
     debugPrint('[FTP] Side server ready for connection with $connectionInfo');
 
-    // send metadata packet
-    _channel.send('file_transfer', 'recieve', {
+    _channel.send('file_transfer', 'receive', {
       'fileName': fileName,
       'fileSize': fileSize,
       'checksum': checksum,
-      'connectionInfo' : connectionInfo,
-      'mimeType': 'application/octet-stream', // willl add more compatablity
+      'connectionInfo': connectionInfo,
+      'mimeType': 'application/octet-stream',
     });
 
-    int sentSize = 0;
-    await for (List<int> chunk in file.openRead()) {
-      sink.add(chunk);
-      sentSize += chunk.length;
-      double progress = sentSize / fileSize;
-      
-      if (onProgress != null) onProgress(progress);
-      
-      // Update notification every 5%
-      if ((sentSize / fileSize * 100).toInt() % 5 == 0) {
-        await _notificationService.showTransferProgress(
-        id: _notifId, 
-        fileName: fileName, 
-        progress: progress
-      );
-      }
-    }
+    try {
+      debugPrint('[FTP] Waiting for receiver to connect');
+      final socket = await socketFuture.timeout(const Duration(seconds: 5));
 
-    await sink.close();
-    await _notificationService.dismissNotification(_notifId);
+      final sink = socket; 
+
+      int sentSize = 0;
+      
+      // Show starting notification
+      await _notificationService.showTransferProgress(
+        id: _notifId, 
+        title: 'File Transfer', 
+        body: 'Starting $fileName...',
+        progress: 0,
+      );
+
+      await for (List<int> chunk in file.openRead()) {
+        sink.add(chunk);
+        sentSize += chunk.length;
+        
+        final int progress = ((sentSize / fileSize) * 100).round();
+        if (progress % 5 == 0) {
+          await _notificationService.showTransferProgress(
+            id: _notifId, 
+            title: 'File Transfer', 
+            body: 'Sending $fileName',
+            progress: progress,
+          );
+        }
+      }
+
+      await sink.close();
+      await _notificationService.dismissNotification(_notifId);
+    } on TimeoutException{
+      debugPrint('[FTP] Error: Connection timed out. Receiver did not connect.');
+      _handleTransferError('Receiver did not respond in time');
+    } on SocketException catch (e) {
+      debugPrint('[FTP] Socket error: ${e.message}');
+      _handleTransferError('Network connection failed.');
+    } catch (e) {
+      debugPrint('[FTP] Unexpected error: $e');
+      _handleTransferError('An unknown error occurred.');
+    }
   }
 
-  Future<void> recieveFile (Map<String, dynamic> metadata, {void Function(double)? onProgress}) async {
+  void _handleTransferError(String message) {
+    _notificationService.showTransferError(
+      id: _notifId, 
+      title: 'Transfer Failed', 
+      error: message,
+    );
+  }
+
+  Future<void> recieveFile (Map<String, dynamic> metadata) async {
     debugPrint("[FTP] Starting file recieve");
     final connectionInfo = metadata['connectionInfo'];
     final fileName = metadata['fileName'];
@@ -107,14 +142,13 @@ class FileTransferService {
     await for (List<int> chunk in stream) {
       sink.add(chunk);
       receivedSize += chunk.length;
-      double progress = receivedSize / fileSize;
+      final int progress = ((receivedSize / fileSize) * 100).round();
       
-      if (onProgress != null) onProgress(progress);
-
-      if ((receivedSize / fileSize * 100).toInt() % 5 == 0) {
+      if (progress % 5 == 0) {
         await _notificationService.showTransferProgress(
           id: _notifId, 
-          fileName: fileName, 
+          title: 'File Transfer', 
+          body: 'Receiving $fileName',
           progress: progress
         );
       }
@@ -131,7 +165,7 @@ class FileTransferService {
       await file.delete(); // Delete corrupted file
       await _notificationService.showTransferError(
         id: _notifId, 
-        fileName: fileName, 
+        title: fileName, 
         error: "Checksum Mismatch"
       );
     }

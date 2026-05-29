@@ -1,21 +1,27 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_controller/core/notification/provider/notification_provider.dart';
+import 'package:mobile_controller/features/file_transfer/provider/file_transfer_provider.dart';
 
-import '../../core/globals.dart';
+import '../../core/network/domain/i_connection_manager.dart';
+import '../../core/network/domain/connection_config.dart';
+import '../../core/network/provider/connection_provider.dart';
+import '../../features/music/provider/remote_media_state.dart';
+import 'package:mobile_controller/features/pairing/ui/pairing_screen.dart';
+import 'package:mobile_controller/features/music/ui/music_player.dart';
 import '../../models/dashboard_item.dart';
-import '../../services/file_transfer.dart';
-import '../../services/socket_client.dart';
-import '../../services/storage_service.dart';
-import '../../services/pairing_screen.dart';
+import '../../core/storage_service.dart';
 import '../../theme/app_theme.dart';
 import '../gamepad/gamepad_screen.dart';
-import 'widgets/music_player.dart';
 import 'widgets/connection_status.dart';
 import 'widgets/dashboard_grid.dart';
-import 'widgets/transfer_snackbar.dart';
-import '../../core/notification_local.dart';
-import 'widgets/header.dart';
+import '../../features/battery/ui/dashboard_header.dart';
+
+final _connectionStatusStreamProvider =
+  StreamProvider<ConnectionStatus>((ref) {
+    final connectionManager = ref.watch(connectionManagerProvider);
+    return connectionManager.connectionStatusStream;
+  });
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -32,47 +38,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
       label: 'Send Files',
       icon: Icons.file_copy,
       onTap: () async {
-        final transfer = FileTransfer();
-        final String? filePath = await transfer.pickFile();
-
-        if(filePath == null) {
-          debugPrint("[FTP] User cancelled file selection");
-          return;
-        }
-
-        final file = File(filePath);
-        final fileName = file.path.split(Platform.pathSeparator).last;
-        final fileSize = await file.length();
-
-        final progress = ValueNotifier<double>(0.0);
-          
-        final task = transfer.sendFile(
-          filePath,
-          onProgress: (p) => progress.value = p,
-        );
-
-        TransferSnackbar.show(
-          label: "Sending File",
-          fileName: fileName,
-          fileSize: fileSize,
-          progressNotifier: progress,
-          task: task,
-          onCancel: () {
-            debugPrint("[FTP] File : $fileName Transfer Cancelled");
-          }
-        );
+        final fileTransferService = ref.read(fileTransferServiceProvider);
+        fileTransferService.sendFile();
       },
     ),
     DashboardItem(
       label: 'Run Command',
       icon: Icons.terminal,
       onTap: () async {
-        final notif = NotificationLocal();
-        notif.initNotif();
-        notif.displayNotif(
+        final notificationService = ref.read(notificationServiceProvider);
+
+        notificationService.showTestNotification(
           id: 100, 
-          title: 'wassup wid it', 
-          body: 'bang bang skid skid nga'
+          title: 'Wassup wid it vannila face', 
+          body: 'bang bang skid skid nigga'
         );
       },
     ),
@@ -101,10 +80,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      final s = client.connectionStatus.value;
-      if (s == SocketConnectionState.disconnected || s == SocketConnectionState.reconnecting) {
-        _handleConnect();
-      }
+      final statusAsync = ref.read(_connectionStatusStreamProvider);
+      // Try to get the current connection status, if available
+      statusAsync.whenData((status) {
+        if (status == ConnectionStatus.disconnected || 
+            status == ConnectionStatus.reconnecting) {
+          _handleConnect();
+        }
+      });
     }
   }
 
@@ -114,7 +97,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
     final port = StorageService.serverPort;
     final token = StorageService.pairingToken;
     if (ip != null && port != null) {
-      await client.connect(ip, port, token: token);
+      final connectionManager = ref.read(connectionManagerProvider);
+      final config = TcpConfig(host: ip, port: port);
+      await connectionManager.connect(config, token: token);
     } else {
       // Data missing, reset to Pairing
       if (mounted) {
@@ -126,66 +111,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
   @override
   void dispose() { 
     WidgetsBinding.instance.removeObserver(this);
-    client.handleDisconnect();
+    ref.read(connectionManagerProvider).disconnect();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final connectionStatusAsync = ref.watch(_connectionStatusStreamProvider);
+    final mediaInfo = ref.watch(musicProvider);
+
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      behavior: HitTestBehavior.translucent, 
+      behavior: HitTestBehavior.translucent,
       child: Scaffold(
         body: SingleChildScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           child: Padding(
             padding: const EdgeInsets.only(
-            left: AppTheme.padding,
-            right: AppTheme.padding,
-            bottom: AppTheme.padding,
-            top: AppTheme.padding * 3, 
-          ),
-            child: ValueListenableBuilder<SocketConnectionState>(
-              valueListenable: client.connectionStatus,
-              builder: (context, connectionStatus, child) {
+              left: AppTheme.padding,
+              right: AppTheme.padding,
+              bottom: AppTheme.padding,
+              top: AppTheme.padding * 3,
+            ),
+            child: connectionStatusAsync.when(
+              loading: () => const StatusWaiting(message: 'Connecting to Server...'),
+              error: (error, stackTrace) => StatusDisconnected(onReconnect: _handleConnect),
+              data: (connectionStatus) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (connectionStatus == SocketConnectionState.connected) ...[
+                    if (connectionStatus == ConnectionStatus.connected) ...[
                       const Header(),
-        
                       DashboardGrid(items: _items),
                       const SizedBox(height: AppTheme.spacing),
-        
-                      ValueListenableBuilder(
-                        valueListenable: processor.metadata, 
-                        builder: (context, info, child) {
-                          final bool isUnknown = info.title.toLowerCase() == 'unknown' || 
-                                                info.artist.toLowerCase() == 'unknown' ||
-                                                info.title.isEmpty || 
-                                                info.artist.isEmpty;
-
-                          if (isUnknown) {
-                            return const SizedBox.shrink();
-                          }
-
-                          return MusicPlayerWidget(
-                            imagePath: info.albumArt,
-                            trackName: info.title,
-                            artistName: info.artist,
-                            position: info.position,
-                            duration: info.duration,
-                            status: info.status,
-                            albumArtBase64: "",
-                            client: client,
-                          );
-                        },
-                      ),
-        
-                      
-                    ] else if (connectionStatus == SocketConnectionState.connecting) ...[
+                      if (mediaInfo.isValid) const MusicPlayerWidget(),
+                    ] else if (connectionStatus == ConnectionStatus.connecting) ...[
                       const StatusWaiting(message: 'Connecting to Server...'),
-                    ] else if (connectionStatus == SocketConnectionState.reconnecting) ...[
+                    ] else if (connectionStatus == ConnectionStatus.reconnecting) ...[
                       const StatusWaiting(message: 'Connection lost. Reconnecting...'),
                     ] else ...[
                       StatusDisconnected(onReconnect: _handleConnect),

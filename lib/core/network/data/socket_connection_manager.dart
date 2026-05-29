@@ -21,6 +21,7 @@ class SocketConnectionManager implements IConnectionManager{
   Timer? _pongTimeoutTimer;
   bool _isReconnecting = false;
   int _retryCount = 0;
+  bool _approved = false;
 
   @override
   ConnectionConfig? get activeConfig => _currentConfig;
@@ -64,13 +65,15 @@ class SocketConnectionManager implements IConnectionManager{
   /// ------------------      core implementation      ------------------------------
   
   Future<void> _attemptConnection(String host, int port, String? pairingToken) async {
+    _approved = false;
     _statusController.add(ConnectionStatus.connecting);
 
     try {
       _socket = await Socket.connect(host, port, timeout: const Duration(seconds: 5));
       _socket!.setOption(SocketOption.tcpNoDelay, true);
 
-      if(pairingToken == null) _sendAuth();
+      // Send auth when a token is available 
+      if (pairingToken != null) _sendAuth();
 
       _socket!.listen(
         (data) {
@@ -81,11 +84,6 @@ class SocketConnectionManager implements IConnectionManager{
         onDone: _handleError,
       );
 
-      _statusController.add(ConnectionStatus.connected);
-      _startHeartbeat();
-      _retryCount = 0;
-      _isReconnecting = false;
-
     } catch(e) {
       debugPrint('[Socket] Connection failed: $e');
       _triggerReconnect();
@@ -93,22 +91,36 @@ class SocketConnectionManager implements IConnectionManager{
   }
 
   void _processBuffer() {
-    while(_buffer.length >= 4) {
+    while (_buffer.length >= 4) {
       final bytes = _buffer.toBytes();
-      final length = ByteData.view(bytes.buffer).getUint32(0, Endian.big);      
+      final length = ByteData.view(bytes.buffer).getUint32(0, Endian.big);
 
-      if(bytes.length > 4 + length) {
+      if (bytes.length >= 4 + length) {
         final payload = bytes.sublist(4, 4 + length);
         final message = utf8.decode(payload);
 
-        if(message == 'PONG') {
-          _pongTimeoutTimer?.cancel();
-        } else {
-          _messageController.add(message);
-        } 
-
         _buffer.clear();
         if (bytes.length > 4 + length) _buffer.add(bytes.sublist(4 + length));
+
+        if (!_approved) {
+          if (message == 'ACCEPTED') {
+            _approved = true;
+            _retryCount = 0;
+            _isReconnecting = false;
+            _statusController.add(ConnectionStatus.connected);
+            _startHeartbeat();
+            debugPrint('[Socket] Connection accepted.');
+          } else {
+            debugPrint('[Socket] Auth rejected: $message');
+            _triggerReconnect();
+          }
+        } else {
+          if (message == 'PONG') {
+            _pongTimeoutTimer?.cancel();
+          } else {
+            _messageController.add(message);
+          }
+        }
       } else {
         break;
       }
@@ -153,6 +165,7 @@ class SocketConnectionManager implements IConnectionManager{
   }
 
   void _cleanup() {
+    _approved = false;
     _heartbeatTimer?.cancel();
     _pongTimeoutTimer?.cancel();
     _socket?.destroy();
