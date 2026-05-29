@@ -3,14 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_controller/core/notification/data/notification_service_impl.dart';
 import 'package:mobile_controller/core/notification/provider/notification_provider.dart';
 
+import 'core/config/app_router.dart';
+import 'core/config/app_routes.dart';
 import 'core/globals.dart';
 import 'core/handler/provider/command_dispatcher_provider.dart';
 import 'core/network/provider/connection_provider.dart';
 import 'core/handler/provider/service_coordinator_provider.dart';
-import 'pages/main_layout/main_layout.dart';
-import 'package:mobile_controller/features/pairing/ui/pairing_screen.dart';
 import 'core/storage_service.dart';
 import 'theme/app_theme.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,7 +49,9 @@ class RemoteControllerApp extends ConsumerWidget {
       theme: buildTheme(Brightness.light),
       darkTheme: buildTheme(Brightness.dark),
       themeMode: ThemeMode.system,
-      home: hasPaired ? const MainScreen() : const PairingScreen(),
+
+      initialRoute: hasPaired ? AppRoutes.mainScreen : AppRoutes.pairingScreen, 
+      onGenerateRoute: AppRouter.generateRoute,
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
+import 'package:mobile_controller/core/config/app_routes.dart';
+import 'package:mobile_controller/theme/app_theme.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -57,15 +58,7 @@ class SettingsScreen extends StatelessWidget {
               title: 'Theme Mode',
               subtitle: 'System default, light, or dark mode',
               onTap: () {
-                // Handle theme selector sheet
-              },
-            ),
-            _buildSettingsTile(
-              icon: Icons.notifications_none_rounded,
-              title: 'Local Notifications',
-              subtitle: 'Toggle transfer completion alerts',
-              onTap: () {
-                // Handle switch toggle state
+                Navigator.of(context).pushNamed(AppRoutes.themeMode);
               },
             ),
 
@@ -109,6 +102,7 @@ class SettingsScreen extends StatelessWidget {
       elevation: 0,
       margin: const EdgeInsets.symmetric(vertical: 4),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.borderRadius)),
+      clipBehavior: Clip.antiAlias,
       child: ListTile(
         onTap: onTap,
         leading: Icon(icon),
