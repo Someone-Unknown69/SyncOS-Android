@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../models/dashboard_item.dart';
+import '../../components/dashboard_item.dart';
 import '../../../theme/app_theme.dart';
 
 class DashboardGrid extends StatelessWidget {

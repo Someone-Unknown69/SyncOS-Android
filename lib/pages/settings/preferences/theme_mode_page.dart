@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_controller/theme/app_theme.dart';
+import 'package:mobile_controller/pages/components/base_page.dart';
 import 'package:mobile_controller/theme/theme_notifier.dart';
 import 'widgets/color_picker.dart';
+import '../../components/settings_tile.dart';
 
 class ThemeModePage extends ConsumerWidget {
   const ThemeModePage({super.key});
@@ -11,89 +12,44 @@ class ThemeModePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: const Text('Preferences'),
-        foregroundColor: theme.colorScheme.primary,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(AppTheme.padding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSectionHeader(context, 'Appearance'),
+    return BasePage(
+      title: 'Preferences', 
+      showBackButton: true,
+      children: [
+        buildSectionHeader(context, 'Appearance'),
             
-            // Light / Dark Theme Toggle
-            _buildSettingsTile(
-              icon: Icons.dark_mode_rounded,
-              title: 'Theme Mode',
-              subtitle: 'Switch between light and dark mode',
-              trailing: Switch(
-                value: theme.brightness == Brightness.dark,
-                onChanged: (bool value) {
-                  ref.read(themeProvider.notifier).updateThemeMode(
-                    value ? ThemeMode.dark : ThemeMode.light
-                  );
-                },
-              ),
-            ),
-
-            // Theme Color Selection
-            _buildSettingsTile(
-              icon: Icons.color_lens_rounded,
-              title: 'App Theme',
-              subtitle: 'Select your preferred accent color',
-              onTap: () => _showColorPicker(context, ref),
-            ),
-
-            // Font Selection
-            _buildSettingsTile(
-              icon: Icons.font_download_rounded,
-              title: 'App Font',
-              subtitle: 'Choose your preferred font family',
-              onTap: () => _showFontPicker(context),
-            ),
-          ],
+        // Light / Dark Theme Toggle
+        buildSettingsTile(
+          icon: Icons.dark_mode_rounded,
+          title: 'Theme Mode',
+          subtitle: 'Switch between light and dark mode',
+          trailing: Switch(
+            value: theme.brightness == Brightness.dark,
+            onChanged: (bool value) {
+              ref.read(themeProvider.notifier).updateThemeMode(
+                value ? ThemeMode.dark : ThemeMode.light
+              );
+            },
+          ),
         ),
-      ),
-    );
-  }
 
-  Widget _buildSectionHeader(BuildContext context, String title) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8, top: 20),
-      child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: Theme.of(context).colorScheme.outline,
-          letterSpacing: 1.2,
+        // Theme Color Selection
+        buildSettingsTile(
+          icon: Icons.color_lens_rounded,
+          title: 'App Theme',
+          subtitle: 'Select your preferred accent color',
+          onTap: () => _showColorPicker(context, ref),
         ),
-      ),
-    );
-  }
 
-  Widget _buildSettingsTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    Widget? trailing,
-    VoidCallback? onTap,
-  }) {
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.borderRadius)),
-      clipBehavior: Clip.antiAlias,
-      child: ListTile(
-        onTap: onTap,
-        leading: Icon(icon),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 13)),
-        trailing: trailing ?? (onTap != null ? const Icon(Icons.chevron_right_rounded, size: 20) : null),
-      ),
+        // Font Selection
+        buildSettingsTile(
+          icon: Icons.font_download_rounded,
+          title: 'App Font',
+          subtitle: 'Choose your preferred font family',
+          onTap: () => _showFontPicker(context),
+        ),
+
+      ]
     );
   }
 

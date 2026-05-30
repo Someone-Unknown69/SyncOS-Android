@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import '../../../theme/app_theme.dart';
-import '../../../pages/home/home_screen.dart';
-import '../provider/pairing_notifier.dart';
+import '../../theme/app_theme.dart';
+import '../home/home_screen.dart';
+import '../../features/pairing/provider/pairing_notifier.dart';
 
 class PairingScreen extends ConsumerStatefulWidget {
   const PairingScreen({super.key});

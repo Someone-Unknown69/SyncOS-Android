@@ -5,93 +5,14 @@ import '../../features/gamepad/data/gamepad_event_sender.dart';
 import '../../core/network/provider/connection_provider.dart';
 import '../../theme/app_theme.dart';
 
-class ControllerPage extends StatelessWidget {
-  const ControllerPage({super.key});
+class LaunchGamepad extends ConsumerStatefulWidget {
+  const LaunchGamepad({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Remote Controller")),
-      body: ListView(
-        padding: const EdgeInsets.all(AppTheme.padding),
-        children: [
-          const Text("Select Mode", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: AppTheme.spacing),
-          
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-              side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: ListTile(
-              leading: Icon(Icons.sports_esports, color: Theme.of(context).colorScheme.primary),
-              title: const Text("Launch Gamepad", style: TextStyle(fontWeight: FontWeight.bold)),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const GamePage()),
-                );
-              },
-            ),
-          ),
-          
-          const SizedBox(height: AppTheme.spacing / 2),
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-              side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: ListTile(
-              leading: Icon(Icons.gamepad, color: Theme.of(context).colorScheme.primary),
-              title: const Text("Configure Layout", style: TextStyle(fontWeight: FontWeight.bold)),
-              onTap: () { /* Future configuration logic */ },
-            ),
-          ),
-
-          const SizedBox(height: AppTheme.spacing / 2),
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-              side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: ListTile(
-              leading: Icon(Icons.settings, color: Theme.of(context).colorScheme.primary),
-              title: const Text("Gamepad Settings", style: TextStyle(fontWeight: FontWeight.bold)),
-              onTap: () { /* Future configuration logic */ },
-            ),
-          ),
-          
-          const SizedBox(height: AppTheme.spacing * 4),
-          Text(
-            "Connect your mobile device to your laptop/PC with USB for lower latency",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-          
-          
-        ],
-      ),
-    );
-  }
+  ConsumerState<LaunchGamepad> createState() => _LaunchGamepadState();
 }
 
-class GamePage extends ConsumerStatefulWidget {
-  const GamePage({super.key});
-
-  @override
-  ConsumerState<GamePage> createState() => _GamePageState();
-}
-
-class _GamePageState extends ConsumerState<GamePage> {
+class _LaunchGamepadState extends ConsumerState<LaunchGamepad> {
   late final USBControllerService _usbControllerService;
 
   @override

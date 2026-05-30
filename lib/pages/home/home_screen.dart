@@ -4,19 +4,17 @@ import 'package:mobile_controller/core/notification/provider/notification_provid
 import 'package:mobile_controller/features/file_transfer/provider/file_transfer_provider.dart';
 
 import '../../core/network/domain/i_connection_manager.dart';
-import '../../core/network/domain/connection_config.dart';
 import '../../core/network/provider/connection_provider.dart';
 import '../../features/music/provider/remote_media_state.dart';
-import 'package:mobile_controller/features/pairing/ui/pairing_screen.dart';
 import 'package:mobile_controller/features/music/ui/music_player.dart';
-import '../../models/dashboard_item.dart';
-import '../../core/storage_service.dart';
+import '../components/dashboard_item.dart';
 import '../../theme/app_theme.dart';
-import '../gamepad/gamepad_screen.dart';
 import 'widgets/connection_status.dart';
 import 'widgets/dashboard_grid.dart';
-import '../../features/battery/ui/dashboard_header.dart';
-
+import 'widgets/dashboard_header.dart';
+import 'package:mobile_controller/core/config/app_routes.dart';
+import 'package:mobile_controller/core/config/app_router.dart';
+import '../../core/network/provider/auto_connect_provider.dart';
 final _connectionStatusStreamProvider =
   StreamProvider<ConnectionStatus>((ref) {
     final connectionManager = ref.watch(connectionManagerProvider);
@@ -30,7 +28,7 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObserver {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // Dashboard Items
   late final List<DashboardItem> _items = [
@@ -63,57 +61,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
     DashboardItem(
       label: 'Gamepad',
       icon: Icons.gamepad,
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const ControllerPage()),
-      ),
+      onTap: () => {
+        AppRouter.pushRoute(context, AppRoutes.gamepad),
+      }
     ),
   ];
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _handleConnect();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      final statusAsync = ref.read(_connectionStatusStreamProvider);
-      // Try to get the current connection status, if available
-      statusAsync.whenData((status) {
-        if (status == ConnectionStatus.disconnected || 
-            status == ConnectionStatus.reconnecting) {
-          _handleConnect();
-        }
-      });
-    }
-  }
-
-  // Method to handle connection
-  void _handleConnect() async {
-    final ip = StorageService.serverIp;
-    final port = StorageService.serverPort;
-    final token = StorageService.pairingToken;
-    if (ip != null && port != null) {
-      final connectionManager = ref.read(connectionManagerProvider);
-      final config = TcpConfig(host: ip, port: port);
-      await connectionManager.connect(config, token: token);
-    } else {
-      // Data missing, reset to Pairing
-      if (mounted) {
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const PairingScreen()));
-      }
-    }
-  }
-
-  @override
-  void dispose() { 
-    WidgetsBinding.instance.removeObserver(this);
-    ref.read(connectionManagerProvider).disconnect();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -135,7 +87,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
             ),
             child: connectionStatusAsync.when(
               loading: () => const StatusWaiting(message: 'Connecting to Server...'),
-              error: (error, stackTrace) => StatusDisconnected(onReconnect: _handleConnect),
+              error: (error, stackTrace) => StatusDisconnected(onReconnect: () => ref.read(autoConnectProvider).manualReconnect()),
               data: (connectionStatus) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -150,7 +102,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
                     ] else if (connectionStatus == ConnectionStatus.reconnecting) ...[
                       const StatusWaiting(message: 'Connection lost. Reconnecting...'),
                     ] else ...[
-                      StatusDisconnected(onReconnect: _handleConnect),
+                      StatusDisconnected(onReconnect: () => ref.read(autoConnectProvider).manualReconnect()),
                     ]
                   ],
                 );

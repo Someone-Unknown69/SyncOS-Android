@@ -5,15 +5,15 @@ import 'package:mobile_controller/core/notification/provider/notification_provid
 import 'package:mobile_controller/theme/theme_notifier.dart';
 
 import 'core/config/app_router.dart';
-import 'core/config/app_routes.dart';
 import 'core/globals.dart';
 import 'core/handler/provider/command_dispatcher_provider.dart';
 import 'core/network/provider/connection_provider.dart';
 import 'core/handler/provider/service_coordinator_provider.dart';
 import 'core/storage_service.dart';
 import 'theme/app_theme.dart';
-
-
+import 'pages/main_layout/main_layout.dart';
+import 'pages/setup_screen/setup_screen.dart';
+import 'core/network/provider/auto_connect_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await StorageService.init();
@@ -31,17 +31,19 @@ void main() async {
   );
 }
 
+
 class RemoteControllerApp extends ConsumerWidget {
   const RemoteControllerApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // listeners / init() calls are registered at app start.
+    ref.watch(autoConnectProvider);           // Handles auto-connect on startup/resume
     ref.watch(connectionManagerProvider);     // Connection manager
     ref.watch(serviceCoordinatorProvider);    // Orchestrates background services
     ref.watch(commandDispatcherProvider);     // routes rawMessageStream -> state
+    
     final themeSettings = ref.watch(themeProvider);
-
     final bool hasPaired = StorageService.hasPaired;
 
     return MaterialApp(
@@ -52,7 +54,7 @@ class RemoteControllerApp extends ConsumerWidget {
       darkTheme: buildTheme(Brightness.dark, themeSettings.seedColor),
       themeMode: themeSettings.themeMode,
 
-      initialRoute: hasPaired ? AppRoutes.mainScreen : AppRoutes.pairingScreen, 
+      home: hasPaired ? const MainScreen() : const SetupScreen(),
       onGenerateRoute: AppRouter.generateRoute,
     );
   }

@@ -1,55 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_controller/core/network/provider/auto_connect_provider.dart';
 import 'package:mobile_controller/features/battery/provider/remote_battery_state.dart';
 import 'package:mobile_controller/features/device_info/provider/remote_device_info_state.dart';
 import '../../../core/network/provider/connection_provider.dart';
 import '../../../theme/app_theme.dart';
 
-// may make it even better in future
-String getGreeting() {
-  final hour = DateTime.now().hour;
-  if (hour >= 5 && hour < 12) return 'Good Morning !';
-  if (hour >= 12 && hour < 17) return 'Good Afternoon !';
-  if (hour >= 17 && hour < 21) return 'Good Evening !';
-  return 'Good Night !';
-}
-
-class Header extends ConsumerStatefulWidget {
+class Header extends ConsumerWidget {
   const Header({super.key});
 
   @override
-  ConsumerState<Header> createState() => _HeaderState();
-}
-
-class _HeaderState extends ConsumerState<Header> with WidgetsBindingObserver {
-  late String _currentGreeting;
-
-  @override
-    void initState() {
-      super.initState();
-      WidgetsBinding.instance.addObserver(this);
-      _currentGreeting = getGreeting();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      setState(() {
-        _currentGreeting = getGreeting();
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+
     final connectionManager = ref.read(connectionManagerProvider);
+    final currentGreeting = ref.watch(greetingProvider);
 
     return Container(
       margin: const EdgeInsets.only(
@@ -62,7 +27,7 @@ class _HeaderState extends ConsumerState<Header> with WidgetsBindingObserver {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                _currentGreeting,
+                currentGreeting,
                 style: TextStyle(
                   fontSize: 26,
                   color: theme.colorScheme.primary,

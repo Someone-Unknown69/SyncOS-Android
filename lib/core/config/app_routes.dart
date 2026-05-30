@@ -7,12 +7,13 @@ class AppRoutes {
   static const String settings = '/settings';
   static const String fileSystem = '/fileSystem';
   static const String pairingScreen = '/pairingScreen';
+  static const String setupScreen = '/setupScreen';
 
   // home screen routes
   static const String gamepad = '$home/gamepad';
 
   // gamepad page routes
-  static const launchGampad = '$gamepad/launchGamepad';
+  static const launchGamepad = '$gamepad/launchGamepad';
   static const configureLayout = '$gamepad/configureLayout';
   static const gamepadSettings = '$gamepad/gamepadSettings';
 

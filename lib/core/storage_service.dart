@@ -32,5 +32,5 @@ class StorageService {
   static Future<bool> setServerPort(int value) => _prefs.setInt(_kServerPort, value);
   static String? get pairingToken => _prefs.getString(_kPairingToken);
   static Future<bool> setPairingToken(String value) => _prefs.setString(_kPairingToken, value);
-  static bool get hasPaired => pairingToken != null;
+  static bool get hasPaired => serverIp != null && serverPort != null;
 } 
