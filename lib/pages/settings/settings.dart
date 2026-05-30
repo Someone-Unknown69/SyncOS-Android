@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_controller/core/config/app_router.dart';
 import 'package:mobile_controller/core/config/app_routes.dart';
 import 'package:mobile_controller/theme/app_theme.dart';
 
@@ -58,7 +59,7 @@ class SettingsScreen extends StatelessWidget {
               title: 'Theme Mode',
               subtitle: 'System default, light, or dark mode',
               onTap: () {
-                Navigator.of(context).pushNamed(AppRoutes.themeMode);
+                AppRouter.pushRoute(context, AppRoutes.themeMode);
               },
             ),
 
