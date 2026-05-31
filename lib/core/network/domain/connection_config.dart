@@ -1,20 +1,38 @@
 abstract class ConnectionConfig {
-  Map<String, dynamic> get getConfig;
+  String get type;
+  Map<String, dynamic> toJson();
+
+  // Global Registry: Maps 'type' string to a factory function
+  static final Map<String, ConnectionConfig Function(Map<String, dynamic>)> _registry = {
+    'tcp': TcpConfig.fromJson,
+    // Add new types here
+  };
+
+  // The global conversion method
+  static ConnectionConfig fromMap(Map<String, dynamic> data) {
+    final type = data['type'] as String?;
+    if (type == null || !_registry.containsKey(type)) {
+      throw Exception("Unsupported or missing connection type: $type");
+    }
+    return _registry[type]!(data);
+  }
 }
 
 class TcpConfig extends ConnectionConfig {
-  final String host;
-  final int port;
-  TcpConfig({required this.host,required this.port});
-
-  factory TcpConfig.fromAddress(String host, int port) {
-    return TcpConfig(host: host, port: port);
-  }
-  
   @override
-  Map<String, dynamic> get getConfig => {
-    'host' : host,
-    'port' : port,
-  };
+  String get type => 'tcp';
+  
+  final String ip;
+  final int port;
+
+  TcpConfig({required this.ip, required this.port});
+
+  @override
+  Map<String, dynamic> toJson() => {'type': type, 'ip': ip, 'port': port};
+
+  factory TcpConfig.fromJson(Map<String, dynamic> json) => TcpConfig(
+        ip: json['ip'] ?? '127.0.0.1',
+        port: json['port'] ?? 8080,
+      );
 }
 

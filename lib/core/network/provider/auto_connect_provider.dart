@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_controller/core/storage_service.dart';
-import 'package:mobile_controller/core/network/domain/connection_config.dart';
 import 'package:mobile_controller/core/network/provider/connection_provider.dart';
+import 'package:mobile_controller/core/storage/provider/storage_service_provider.dart';
 
 String getGreeting() {
   final hour = DateTime.now().hour;
@@ -51,17 +50,21 @@ class AutoConnectController with WidgetsBindingObserver {
   }
 
   Future<void> _handleConnect() async {
+    final storage = ref.read(storageServiceProvider);
+
+    final config = await storage.getConnectionConfig();
+    final isPaired = await storage.isPaired;
+
     // Only auto-connect if the app has been paired previously
-    if (!StorageService.hasPaired) return;
-
-    final ip = StorageService.serverIp;
-    final port = StorageService.serverPort;
-    final token = StorageService.pairingToken;
-
-    if (ip != null && port != null) {
+    // if config is empty it means it has not been paired
+    // I sort of added a double check just to be safe
+    // it's obv both of them will be same
+    // If this is degrading performance and can be removed in future consider removing it
+    if (isPaired && config != null) {
       final connectionManager = ref.read(connectionManagerProvider);
-      final config = TcpConfig(host: ip, port: port);
-      await connectionManager.connect(config, token: token);
+      await connectionManager.connect(config);
+    } else {
+      debugPrint('[Auto Connnect] Not paired or config is null');
     }
   }
 

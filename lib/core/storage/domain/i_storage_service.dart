@@ -1,10 +1,6 @@
 abstract class IStorageService {
-  String? get serverIp;
-  int? get serverPort;
-  String? get pairingToken;
-  bool get hasPaired;
-  
-  Future<void> setServerIp(String value);
-  Future<void> setServerPort(int value);
-  Future<void> setPairingToken(String value);
+  Future<void> write(String key, String value);
+  Future<String?> read(String key);
+  Future<void> delete(String key);
+  Future<void> clearAll();
 }

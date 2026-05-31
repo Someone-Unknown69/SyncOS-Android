@@ -1,51 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_controller/core/storage_service.dart';
+import 'package:mobile_controller/core/storage/domain/models/app_settings.dart';
+import 'package:mobile_controller/core/storage/provider/storage_service_provider.dart';
 
-// State class to hold theme settings
-class ThemeSettings {
-  final ThemeMode themeMode;
-  final Color seedColor;
-
-  ThemeSettings({required this.themeMode, required this.seedColor});
-
-  ThemeSettings copyWith({ThemeMode? themeMode, Color? seedColor}) {
-    return ThemeSettings(
-      themeMode: themeMode ?? this.themeMode,
-      seedColor: seedColor ?? this.seedColor,
-    );
-  }
-}
-
-// Notifier to manage the state
-class ThemeNotifier extends Notifier<ThemeSettings> {
+// Theme notifier backed by persistent AppSettings
+class ThemeNotifier extends Notifier<AppSettings> {
   @override
-  ThemeSettings build() {
-    final savedModeIndex = StorageService.themeModeIndex;
-    final savedColorValue = StorageService.seedColorValue;
-
-    return ThemeSettings(
-      themeMode: savedModeIndex != null 
-          ? ThemeMode.values[savedModeIndex] 
-          : ThemeMode.system,
-      seedColor: savedColorValue != null 
-          ? Color(savedColorValue) 
-          : Colors.blue,
+  AppSettings build() {
+    // Default settings while we load persisted settings asynchronously
+    final defaultSettings = AppSettings(
+      themeMode: ThemeMode.system,
+      seedColor: Colors.blue,
     );
+
+    // Load persisted settings and update state when available
+    final storage = ref.read(storageServiceProvider);
+    storage.getAppSettings().then((saved) {
+      if (saved != null) state = saved;
+    }).catchError((_) {});
+
+    return defaultSettings;
   }
 
   void updateThemeMode(ThemeMode mode) {
-    state = state.copyWith(themeMode: mode);
-    StorageService.setThemeModeIndex(mode.index);
+    final updated = AppSettings(themeMode: mode, seedColor: state.seedColor);
+    state = updated;
+    ref.read(storageServiceProvider).setAppSettings(updated);
   }
 
   void updateSeedColor(Color color) {
-    state = state.copyWith(seedColor: color);
-    StorageService.setSeedColorValue(color.value);
+    final updated = AppSettings(themeMode: state.themeMode, seedColor: color);
+    state = updated;
+    ref.read(storageServiceProvider).setAppSettings(updated);
   }
 }
-
-// Provider
-final themeProvider = NotifierProvider<ThemeNotifier, ThemeSettings>(() {
-  return ThemeNotifier();
-});

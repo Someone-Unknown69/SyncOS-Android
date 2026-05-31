@@ -37,8 +37,9 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
       if (data.containsKey('ip') &&
           data.containsKey('port') &&
           data.containsKey('token') &&
-          data.containsKey('http_port')) {
+          data.containsKey('type')) {
         _scannerController.stop();
+
 
         final success =
             await ref.read(pairingProvider.notifier).pair(data);

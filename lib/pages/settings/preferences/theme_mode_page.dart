@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_controller/pages/components/base_page.dart';
-import 'package:mobile_controller/theme/theme_notifier.dart';
+import 'package:mobile_controller/theme/provider/theme_provider.dart';
 import 'widgets/color_picker.dart';
 import '../../components/settings_tile.dart';
 

@@ -1,4 +1,5 @@
 // lib/features/pairing/provider/pairing_notifier.dart
+import 'package:mobile_controller/core/storage/provider/storage_service_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../data/pairing_service.dart';
 import '../../../core/network/provider/connection_provider.dart';
@@ -14,7 +15,8 @@ class PairingNotifier extends _$PairingNotifier {
     state = true; // Start loading
     try {
       final manager = ref.read(connectionManagerProvider);
-      final service = PairingService(manager);
+      final storage = ref.read(storageServiceProvider);
+      final service = PairingService(manager, storage);
       return await service.pairWithServer(data);
     } catch (e) {
       return false;

@@ -2,31 +2,35 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_controller/core/notification/data/notification_service_impl.dart';
 import 'package:mobile_controller/core/notification/provider/notification_provider.dart';
-import 'package:mobile_controller/theme/theme_notifier.dart';
+import 'package:mobile_controller/theme/provider/theme_provider.dart';
 
 import 'core/config/app_router.dart';
 import 'core/globals.dart';
 import 'core/handler/provider/command_dispatcher_provider.dart';
 import 'core/network/provider/connection_provider.dart';
 import 'core/handler/provider/service_coordinator_provider.dart';
-import 'core/storage_service.dart';
 import 'theme/app_theme.dart';
 import 'pages/main_layout/main_layout.dart';
 import 'pages/setup_screen/setup_screen.dart';
 import 'core/network/provider/auto_connect_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'core/storage/provider/storage_service_provider.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await StorageService.init();
-  
+
   final notificationService = NotificationServiceImpl();
   await notificationService.init();
+
+  final prefs = await SharedPreferences.getInstance();
 
   runApp(
     ProviderScope(
       overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
         notificationServiceProvider.overrideWithValue(notificationService),
       ],
-      child: RemoteControllerApp(),
+      child: const RemoteControllerApp(),
     ),
   );
 }
@@ -44,7 +48,13 @@ class RemoteControllerApp extends ConsumerWidget {
     ref.watch(commandDispatcherProvider);     // routes rawMessageStream -> state
     
     final themeSettings = ref.watch(themeProvider);
-    final bool hasPaired = StorageService.hasPaired;
+    final paired = ref.watch(pairedProvider);
+
+    Widget homeWidget = paired.when(
+      data: (hasPaired) => hasPaired ? const MainScreen() : const SetupScreen(),
+      loading: () => const MainScreen(),
+      error: (_, _) => const SetupScreen(),
+    );
 
     return MaterialApp(
       title: 'SyncOS',
@@ -54,7 +64,7 @@ class RemoteControllerApp extends ConsumerWidget {
       darkTheme: buildTheme(Brightness.dark, themeSettings.seedColor),
       themeMode: themeSettings.themeMode,
 
-      home: hasPaired ? const MainScreen() : const SetupScreen(),
+      home: homeWidget,
       onGenerateRoute: AppRouter.generateRoute,
     );
   }

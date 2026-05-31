@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_controller/core/storage/provider/storage_service_provider.dart';
 import '../domain/i_connection_manager.dart';
 import '../data/socket_connection_manager.dart';
 
@@ -21,7 +22,9 @@ import '../data/socket_connection_manager.dart';
 
 final connectionManagerProvider = Provider<IConnectionManager>((ref) {
   // In case of changing conenection manager in future, ONLY THIS FILE shall be changed
-  final manager = SocketConnectionManager();
+  final storage = ref.watch(storageServiceProvider);
+
+  final manager = SocketConnectionManager(storage);
   
   ref.onDispose(() => manager.disconnect());
   
