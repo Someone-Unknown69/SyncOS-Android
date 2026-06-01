@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:mobile_controller/features/music/provider/remote_media_state.dart';
@@ -15,17 +16,21 @@ class CommandDispatcher {
   final IMediaService _mediaService;
   final FileTransferService _fileTransferService;
 
+  StreamSubscription<String>? _rawMessageSubscription;
+  bool _isStarted = false;
+
   CommandDispatcher(
     this.ref,
     this._connectionManager, 
     this._mediaService,
     this._fileTransferService,
-  ) {
-    _init();
-  }
+  );
 
-  void _init() {
-    _connectionManager.rawMessageStream.listen((rawMessage) {
+  void start() {
+    if (_isStarted) return;
+    _isStarted = true;
+
+    _rawMessageSubscription = _connectionManager.rawMessageStream.listen((rawMessage) {
       final Map<String, dynamic> data = jsonDecode(rawMessage);
       final String operation = data['op'];
       final String action = data['action'];
@@ -59,5 +64,15 @@ class CommandDispatcher {
           break;
       }
     });
+  }
+
+  void stop() {
+    _rawMessageSubscription?.cancel();
+    _rawMessageSubscription = null;
+    _isStarted = false;
+  }
+
+  void dispose() {
+    stop();
   }
 }

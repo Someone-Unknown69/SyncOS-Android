@@ -41,7 +41,7 @@ final class PairingNotifierProvider
   }
 }
 
-String _$pairingNotifierHash() => r'e746a01e4a76a51fb947054d99ebd267608119bc';
+String _$pairingNotifierHash() => r'6aee46cbf33c714c0d8cce77c38103685efff75e';
 
 abstract class _$PairingNotifier extends $Notifier<bool> {
   bool build();

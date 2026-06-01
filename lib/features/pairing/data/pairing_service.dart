@@ -17,20 +17,12 @@ class PairingService {
     debugPrint('[PairingService] pairWithServer called with data: $data');
     final config = ConnectionConfig.fromMap(data);
 
-
     final statusFuture = _connectionManager.connectionStatusStream
-        .firstWhere((s) => s == ConnectionStatus.connected || s == ConnectionStatus.disconnected)
-        .timeout(const Duration(seconds: 10));
+    .where((s) => s == ConnectionStatus.connected || s == ConnectionStatus.unauthorized) // Filter out everything else
+    .first // Take the first successful connection or unauthorized connection
+    .timeout(const Duration(seconds: 10));
 
     final token = data['token'] as String?;
-
-
-    Future<void> clearFailedPairingState() async {
-      debugPrint('[PairingService] clearing stored pairing state after failure');
-      await _storage.clearPairingToken();
-      await _storage.clearConnectionConfig();
-    }
-
 
     if (token == null) {
       try {
@@ -47,11 +39,12 @@ class PairingService {
         }
 
         debugPrint('[PairingService] manual pairing failed: status=$status');
-        await clearFailedPairingState();
+        await _clearFailedPairingState();
         return false;
       } catch (e) {
         debugPrint('[PairingService] Manual pairing failed: $e');
-        await clearFailedPairingState();
+        await _clearFailedPairingState();
+        return false;
       }
     } else {
       debugPrint('[PairingService] token present, starting automatic pairing with token');
@@ -71,15 +64,34 @@ class PairingService {
         }
 
         debugPrint('[PairingService] automatic pairing failed: status=$status');
-        await clearFailedPairingState();
+        await _clearFailedPairingState();
         return false;
       } catch (e) {
         debugPrint('[PairingService] Automatic pairing failed: $e');
-        await clearFailedPairingState();
+        await _clearFailedPairingState();
       }
     }
 
     debugPrint('[PairingService] pairing attempt returned false');
     return false;
+  }
+
+  Future<bool> unpairWithServer() async {
+    try {
+      debugPrint('[PairingService] Unpaired device successfully');
+      await _clearFailedPairingState();
+
+      _connectionManager.disconnect();
+      return true;
+    } catch (e) {
+      debugPrint('[PairingService] Error in unpairing : $e');
+      return false;
+    }
+  }
+
+  Future<void> _clearFailedPairingState() async {
+    debugPrint('[PairingService] clearing stored pairing state after failure');
+    await _storage.clearPairingToken();
+    await _storage.clearConnectionConfig();
   }
 }

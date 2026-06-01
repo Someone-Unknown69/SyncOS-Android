@@ -5,7 +5,6 @@ import 'package:mobile_controller/core/config/app_routes.dart';
 import 'package:mobile_controller/features/pairing/provider/pairing_notifier.dart';
 import 'package:mobile_controller/pages/components/base_page.dart';
 import 'package:mobile_controller/pages/components/settings_tile.dart';
-import 'package:mobile_controller/pages/home/home_screen.dart';
 import 'package:mobile_controller/theme/app_theme.dart';
 
 class SetupScreen extends ConsumerStatefulWidget {
@@ -42,9 +41,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
     if (!mounted) return;
 
     if (success) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+      AppRouter.pushRoute(context, AppRoutes.mainScreen);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Pairing failed: Authentication error')),

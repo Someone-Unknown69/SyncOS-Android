@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_controller/pages/gamepad/gamepad_page.dart';
+import 'package:mobile_controller/pages/settings/connection/connection_details.dart';
 import 'package:mobile_controller/pages/setup_screen/setup_screen.dart';
 import 'app_routes.dart';
 
@@ -51,6 +52,9 @@ class AppRouter {
 
       case AppRoutes.launchGamepad:
         return _createSlideRoute(const LaunchGamepad());
+
+      case AppRoutes.connectionDetails:
+        return _createSlideRoute(const ConnectionDetails());
       default:
         return MaterialPageRoute(
           builder: (_) => Scaffold(

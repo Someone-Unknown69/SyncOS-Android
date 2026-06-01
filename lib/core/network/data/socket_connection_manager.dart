@@ -21,13 +21,15 @@ class SocketConnectionManager implements IConnectionManager{
   
   ConnectionStatus _status = ConnectionStatus.disconnected;
 
-
   ConnectionConfig? _currentConfig;
+
+  Completer<void>? _authCompleter;
   
   // state management
   Timer? _heartbeatTimer;
   Timer? _pongTimeoutTimer;
   bool _isReconnecting = false;
+  bool _shouldReconnect = true;
   int _retryCount = 0;
 
   // ---------------------------------    Getters    -------------------------------------------- 
@@ -59,10 +61,12 @@ class SocketConnectionManager implements IConnectionManager{
       if (_status == ConnectionStatus.connecting || _status == ConnectionStatus.connected) return;
       
       _currentConfig = config;
-      debugPrint('[Socket] Initializing TCP connection to ${config.ip}');
 
       _status = ConnectionStatus.connecting;
       _statusController.add(_status);
+
+      debugPrint('[Socket] Initializing TCP connection to ${config.ip}');
+
       await _attemptConnection(config.ip, config.port);
     } else {
       throw UnsupportedError("This manager only supports TCP connections");
@@ -79,7 +83,6 @@ class SocketConnectionManager implements IConnectionManager{
       
       debugPrint('[Socket] Sending Pair Request');
 
-      _statusController.add(ConnectionStatus.pairing);
 
       await _attemptConnection(config.ip, config.port);
     } else {
@@ -97,7 +100,12 @@ class SocketConnectionManager implements IConnectionManager{
 
   @override
   void disconnect() {
+    _shouldReconnect = false;
     _isReconnecting = false;
+    _status = ConnectionStatus.disconnected;
+    if (_authCompleter != null && !_authCompleter!.isCompleted) {
+      _authCompleter!.completeError('Disconnected');
+    }
     _cleanup();
     _statusController.add(ConnectionStatus.disconnected);
   }
@@ -106,7 +114,9 @@ class SocketConnectionManager implements IConnectionManager{
   
   Future<void> _attemptConnection(String ip, int port) async {
     try {
-      debugPrint('[Socket] Connection to $ip at $port');
+      _authCompleter = Completer<void>();
+
+      // TODO : Implement secure socket on both sides
       _socket = await Socket.connect(
         ip, 
         port, 
@@ -136,6 +146,8 @@ class SocketConnectionManager implements IConnectionManager{
         _sendAuth(token);
       }
 
+      await _authCompleter!.future.timeout(const Duration(seconds: 5));
+      debugPrint("[Socket] Authentication successful, entering data mode");
     } catch(e) {
       debugPrint('[Socket] Connection failed: $e');
       _triggerReconnect();
@@ -173,20 +185,30 @@ class SocketConnectionManager implements IConnectionManager{
     final action = data['action'] as String?;
     final args = data['args'] as Map<String, dynamic>? ?? {};
 
-    if (_status == ConnectionStatus.connected) {
-      _messageController.add(jsonEncode(data));
-      return;
-    }
-
     // Handle Handshakes
     if (op == 'auth' || op == 'pair') {
       if (action == 'accepted') {
         _finalizeConnection(token: args['token']);
+
+        if (_authCompleter != null && !_authCompleter!.isCompleted) {
+          _authCompleter!.complete();
+        }
+
       } else if (action == 'rejected') {
         _status = (op == 'auth') ? ConnectionStatus.unauthorized : ConnectionStatus.disconnected;
         _statusController.add(_status);
         _cleanup();
+
+        if (_authCompleter != null && !_authCompleter!.isCompleted) {
+          _authCompleter!.completeError("Rejected");
+        }
       }
+      return;
+    }
+    
+    if (_status == ConnectionStatus.connected) {
+      _messageController.add(jsonEncode(data));
+      return;
     }
   }
 
@@ -202,6 +224,9 @@ class SocketConnectionManager implements IConnectionManager{
   }
 
   void _triggerReconnect() {
+    if (!_shouldReconnect) return;
+
+    debugPrint("This is runnin even when unpaired");
     _cleanup();
     _isReconnecting = true;
     _status = ConnectionStatus.reconnecting;
@@ -213,7 +238,7 @@ class SocketConnectionManager implements IConnectionManager{
 
     if(config is TcpConfig) {
       Future.delayed(Duration(seconds: delay), () {
-        if (_isReconnecting) {
+        if (_shouldReconnect && _isReconnecting) {
           _retryCount++;
           _attemptConnection(config.ip, config.port);
         }

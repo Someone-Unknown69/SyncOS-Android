@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:mobile_controller/core/network/domain/connection_config.dart';
 import 'package:mobile_controller/core/storage/domain/i_storage_service.dart';
@@ -23,16 +24,24 @@ class StorageService {
   final IStorageService _secure;
   final IStorageService _prefs;
 
+  final _pairingStatusController = StreamController<bool>.broadcast();
+
   StorageService(this._secure, this._prefs);
 
 
   // ------- Connection Config & Authnentication -----
-  Future<void> setPairingToken(String token) => 
-      _secure.write(StorageKeys.pairingToken, token);
-
-  Future<void> clearPairingToken() =>
-      _secure.delete(StorageKeys.pairingToken);
+  Stream<bool> get pairingStream => _pairingStatusController.stream;
   
+  Future<void> setPairingToken(String token) async { 
+    _secure.write(StorageKeys.pairingToken, token);
+    _pairingStatusController.add(true);
+  }
+
+  Future<void> clearPairingToken() async {
+      _secure.delete(StorageKeys.pairingToken);
+      _pairingStatusController.add(false);
+  }
+
   Future<String?> getPairingToken() => 
       _secure.read(StorageKeys.pairingToken);
 
@@ -45,11 +54,12 @@ class StorageService {
     await _prefs.write(StorageKeys.connectionConfig, jsonString);
   }
 
+
+
   Future<bool> get isPaired async {
     final token = await _secure.read(StorageKeys.pairingToken);
     return token != null && token.isNotEmpty;
   }
-
 
   Future<ConnectionConfig?> getConnectionConfig() async {
     final jsonString = await _prefs.read(StorageKeys.connectionConfig);

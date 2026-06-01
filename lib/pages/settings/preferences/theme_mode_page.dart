@@ -41,13 +41,13 @@ class ThemeModePage extends ConsumerWidget {
           onTap: () => _showColorPicker(context, ref),
         ),
 
-        // Font Selection
-        buildSettingsTile(
-          icon: Icons.font_download_rounded,
-          title: 'App Font',
-          subtitle: 'Choose your preferred font family',
-          onTap: () => _showFontPicker(context),
-        ),
+        // TODO : Font Selection
+        // buildSettingsTile(
+        //   icon: Icons.font_download_rounded,
+        //   title: 'App Font',
+        //   subtitle: 'Choose your preferred font family',
+        //   onTap: () => _showFontPicker(context),
+        // ),
 
       ]
     );
@@ -70,6 +70,6 @@ class ThemeModePage extends ConsumerWidget {
     );
   }
 
-  // Placeholder methods for selection logic
-  void _showFontPicker(BuildContext context) { /* Show Modal Bottom Sheet */ }
+  // TODO : 
+  // void _showFontPicker(BuildContext context) { /* Show Modal Bottom Sheet */ }
 }

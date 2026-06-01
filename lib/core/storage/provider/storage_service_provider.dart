@@ -16,7 +16,12 @@ final storageServiceProvider = Provider<StorageService>((ref) {
 });
 
 // Expose whether the app is paired (checks secure storage for pairing token)
-final pairedProvider = FutureProvider<bool>((ref) async {
+final pairedProvider = StreamProvider<bool>((ref) async* {
   final storage = ref.watch(storageServiceProvider);
-  return await storage.isPaired;
+
+  final initialStatus = await storage.isPaired;
+  yield initialStatus;
+
+  // yield any future updates for any pairing status listeners
+  yield* storage.pairingStream;
 });

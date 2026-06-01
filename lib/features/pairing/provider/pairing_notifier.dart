@@ -17,11 +17,31 @@ class PairingNotifier extends _$PairingNotifier {
       final manager = ref.read(connectionManagerProvider);
       final storage = ref.read(storageServiceProvider);
       final service = PairingService(manager, storage);
-      return await service.pairWithServer(data);
+      final result = await service.pairWithServer(data);
+      return result;
     } catch (e) {
       return false;
     } finally {
-      state = false; // Stop loading
+      if (ref.mounted) {
+        state = false; // Stop loading
+      }
+    }
+  }
+
+  Future<bool> unpairWithServer() async {
+    state = true;
+    try {
+      final manager = ref.read(connectionManagerProvider);
+      final storage = ref.read(storageServiceProvider);
+      final service = PairingService(manager, storage);
+      final result = await service.unpairWithServer();
+      return result;
+    } catch (e) {
+      return false;
+    } finally {
+      if (ref.mounted) {
+        state = false;
+      }
     }
   }
 }

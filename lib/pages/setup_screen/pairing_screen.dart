@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_controller/core/config/app_router.dart';
+import 'package:mobile_controller/core/config/app_routes.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../theme/app_theme.dart';
-import '../home/home_screen.dart';
 import '../../features/pairing/provider/pairing_notifier.dart';
 
 class PairingScreen extends ConsumerStatefulWidget {
@@ -46,10 +47,9 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
 
         if (!mounted) return;
 
+        debugPrint("success value of handlebarcode : $success");
         if (success) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const HomeScreen()),
-          );
+          AppRouter.pushRoute(context, AppRoutes.mainScreen);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Pairing failed: Authentication error')),
