@@ -10,7 +10,8 @@ class BatteryMonitorService implements IBatteryMonitorService {
   final IBatteryInfo _batteryInfo;
   final IDeviceInfo _deviceInfo;
   
-  StreamSubscription? _batterySubscription;
+  StreamSubscription? _stateSubscription;
+  StreamSubscription? _levelSubscription;
 
   BatteryMonitorService(this._connectionManager, this._batteryInfo, this._deviceInfo);
 
@@ -23,26 +24,30 @@ class BatteryMonitorService implements IBatteryMonitorService {
 
   @override
   Future<void> start() async {
-    // 1. Initial Identity Payload
     final name = await getDeviceName();
     _connectionManager.send("device_info", '', {'name': name});
 
-    // 2. Initial Battery Payload
     await _sendBatteryUpdate();
 
-    // 3. Subscription for changes
-    _batterySubscription?.cancel();
-    _batterySubscription = _batteryInfo.onStateChanged.listen((AppBatteryState state) async {
+    _stateSubscription?.cancel();
+    _stateSubscription = _batteryInfo.onStateChanged.listen((AppBatteryState state) async {
       // Small delay allows the OS to update internal cache after a state change
       await Future.delayed(const Duration(milliseconds: 500));
+      await _sendBatteryUpdate();
+    });
+
+    _levelSubscription = _batteryInfo.onLevelChanged.listen((_) async {
       await _sendBatteryUpdate();
     });
   }
 
   @override
   void stop() {
-    _batterySubscription?.cancel();
-    _batterySubscription = null;
+    _stateSubscription?.cancel();
+    _stateSubscription = null;
+
+    _levelSubscription?.cancel();
+    _levelSubscription = null;
   }
 
   Future<void> _sendBatteryUpdate() async {
