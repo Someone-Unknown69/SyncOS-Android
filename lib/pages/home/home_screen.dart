@@ -46,11 +46,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       onTap: () async {
         final notificationService = ref.read(notificationServiceProvider);
 
-        notificationService.showTestNotification(
-          id: 100, 
-          title: 'Wassup wid it vannila face', 
-          body: 'bang bang skid skid nigga'
-        );
+        notificationService.showTestNotification();
       },
     ),
     DashboardItem(

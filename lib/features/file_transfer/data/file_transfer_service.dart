@@ -20,6 +20,8 @@ class FileTransferService {
 
   static const int _notifId = 101;
 
+  static const notificationThrottleMs = 500;
+
   FileTransferService(
     this._channel, 
     this._fileService, 
@@ -61,9 +63,10 @@ class FileTransferService {
       final sink = socket; 
 
       int sentSize = 0;
+      int lastNotificationTime = 0;
       
       // Show starting notification
-      await _notificationService.showTransferProgress(
+      _notificationService.showTransferProgress(
         id: _notifId, 
         title: 'File Transfer', 
         body: 'Starting $fileName...',
@@ -74,15 +77,22 @@ class FileTransferService {
         sink.add(chunk);
         sentSize += chunk.length;
         
-        final int progress = ((sentSize / fileSize) * 100).round();
-        if (progress % 5 == 0) {
-          await _notificationService.showTransferProgress(
+        final now = DateTime.now().millisecondsSinceEpoch;
+
+        if(now - lastNotificationTime >= notificationThrottleMs) {
+          final int progress = ((sentSize / fileSize) * 100).round();
+
+          // We gonna call it unawaited so it doesn't add to latency
+          _notificationService.showTransferProgress(
             id: _notifId, 
             title: 'File Transfer', 
             body: 'Sending $fileName',
             progress: progress,
           );
+
+          lastNotificationTime = now;
         }
+
       }
 
       await sink.close();
@@ -138,14 +148,17 @@ class FileTransferService {
     final stream = await _fileTransferManager.receive(connectionInfo);
     final sink = file.openWrite();
     int receivedSize = 0;
+    int lastNotificationTime = 0;
 
     await for (List<int> chunk in stream) {
       sink.add(chunk);
       receivedSize += chunk.length;
       final int progress = ((receivedSize / fileSize) * 100).round();
       
-      if (progress % 5 == 0) {
-        await _notificationService.showTransferProgress(
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      if(now - lastNotificationTime >= notificationThrottleMs) {
+        _notificationService.showTransferProgress(
           id: _notifId, 
           title: 'File Transfer', 
           body: 'Receiving $fileName',

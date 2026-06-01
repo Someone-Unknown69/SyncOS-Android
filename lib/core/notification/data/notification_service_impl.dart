@@ -1,6 +1,5 @@
 import '../domain/i_notification_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import '../../../theme/app_theme.dart';
 
 class NotificationServiceImpl implements INotificationService {
 
@@ -87,47 +86,65 @@ class NotificationServiceImpl implements INotificationService {
     required String title, 
     required String error
   }) async {
-    String error = "Transfer failed or connection lost";
+    await showNotification(
+      id: id,
+      title: title,
+      body: error,
+      urgency: 3,
+      icon: '@mipmap/ic_launcher',
+    );
+  }
+
+  @override
+  Future<void> showNotification({
+    required int id,
+    required String title,
+    String? body,
+    int urgency = 1,
+    String icon = 'dialog-information',
+  }) async {
+    final androidImportance = switch (urgency) {
+      0 => Importance.low,
+      1 => Importance.defaultImportance,
+      2 => Importance.high,
+      3 => Importance.max,
+      _ => Importance.defaultImportance,
+    };
+
+    final androidPriority = switch (urgency) {
+      0 => Priority.low,
+      1 => Priority.defaultPriority,
+      2 => Priority.high,
+      3 => Priority.max,
+      _ => Priority.defaultPriority,
+    };
 
     final androidDetails = AndroidNotificationDetails(
-      'alert_channel',
-      'SyncOS Alerts',
-      channelDescription: 'Progress of SyncOS file transfers',
-      importance: Importance.high, // Higher importance so the user notices the failure
-      priority: Priority.high,
-      showProgress: false,         // Hide the progress bar on error
-      ongoing: false,              // Allow user to swipe it away
-      autoCancel: true,            // Dismiss when tapped
-      color: AppTheme.errorColor,         // RED !!!! RED !!!!!
-      icon: '@mipmap/ic_launcher',
+      'normal_channel',
+      'SyncOS',
+      channelDescription: 'SyncOS',
+      importance: androidImportance,
+      priority: androidPriority,
+      icon: icon,
+      ongoing: false,
+      autoCancel: true,
     );
 
     await _plugin.show(
       id: id,
       title: title,
-      body: error,
+      body : body,
       notificationDetails: NotificationDetails(android: androidDetails),
     );
   }
 
   @override
-  Future<void> showTestNotification({
-    required int id,
-    required String title,
-    required String body,
-  }) async {
-    final androidDetails =  AndroidNotificationDetails(
-      'normal_channel',
-      'SyncOS',
-      channelDescription: 'random shi',
-      importance: Importance.defaultImportance,
-    );
-
-    await _plugin.show(
-      id: id,
-      title: title,
-      body: body,
-      notificationDetails: NotificationDetails(android: androidDetails),
+  Future<void> showTestNotification() async {
+    await showNotification(
+      id: 100,
+      title: 'Ladis',
+      body: 'Ladis Washerum',
+      urgency: 1,
     );
   }
 

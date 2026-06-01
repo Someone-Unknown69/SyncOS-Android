@@ -1,8 +1,16 @@
 
 abstract class INotificationService {
   Future<void> init();
+
+  Future<void> showNotification({
+    required int id,
+    required String title,
+    String? body,
+    int urgency = 1,
+    String icon = 'dialog-information',
+  });
   
-  Future<void> showTransferProgress({
+  void showTransferProgress({
     required int id, 
     required String title, 
     required String body,
@@ -15,11 +23,7 @@ abstract class INotificationService {
     required String error
   });
   
-  Future<void> showTestNotification({
-    required int id,
-    required String title,
-    required String body,
-  });
+  Future<void> showTestNotification();
   
   Future<void> dismissNotification(int id);
 }
