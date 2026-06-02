@@ -81,7 +81,7 @@ class NotificationServiceImpl implements INotificationService {
   }
 
   @override
-  Future<void> showTransferError({
+  Future<void> showErrorNotification({
     required int id, 
     required String title, 
     required String error

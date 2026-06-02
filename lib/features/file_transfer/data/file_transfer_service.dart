@@ -110,7 +110,7 @@ class FileTransferService {
   }
 
   void _handleTransferError(String message) {
-    _notificationService.showTransferError(
+    _notificationService.showErrorNotification(
       id: _notifId, 
       title: 'Transfer Failed', 
       error: message,
@@ -176,7 +176,7 @@ class FileTransferService {
     } else {
       debugPrint("[FTP] Transfer Failed: Checksum Mismatch!");
       await file.delete(); // Delete corrupted file
-      await _notificationService.showTransferError(
+      await _notificationService.showErrorNotification(
         id: _notifId, 
         title: fileName, 
         error: "Checksum Mismatch"

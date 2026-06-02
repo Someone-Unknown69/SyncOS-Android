@@ -17,7 +17,7 @@ abstract class INotificationService {
     required int progress
   });
   
-  Future<void> showTransferError({
+  Future<void> showErrorNotification({
     required int id, 
     required String title, 
     required String error
