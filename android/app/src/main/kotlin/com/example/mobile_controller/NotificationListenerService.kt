@@ -12,26 +12,25 @@ class MusicNotificationListenerService : NotificationListenerService() {
     // When notification is detected we path it either to musichandler or notificationhandler
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         if (sbn == null) return
-        
         super.onNotificationPosted(sbn)
 
-        val packageName = sbn.packageName
-        val notificationId = sbn.id
-        val extras = sbn.notification?.extras
+        val extras = sbn.notification?.extras ?: return
 
-        val titleText = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: "N/A"
-        val bodyText = extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: "N/A"
-        val templateStyle = extras?.getString(Notification.EXTRA_TEMPLATE) ?: "Standard"
-        val subText = extras?.getString(Notification.EXTRA_SUB_TEXT) ?: "N/A"
+        val titleText = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: "N/A"
+        val bodyText = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: "N/A"
+        val templateStyle = extras.getString(Notification.EXTRA_TEMPLATE) ?: "Standard"
+        val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: "N/A"
 
         val isMedia = templateStyle == """android.app.Notification${"$"}MediaStyle"""
 
-        if(isMedia) {
+        if (isMedia) {
             sendForMusic(sbn)
         } else {
             sendForNotification(sbn)
         }
     }
+
+    
 
 
     override fun onListenerConnected() {

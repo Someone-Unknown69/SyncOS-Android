@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
+import 'package:mobile_controller/features/notification_sender/domain/model/app_notification.dart';
 import '../domain/i_local_notification_sender.dart';
 
 class NotificationReceiverImpl implements INotificationListener{
@@ -46,24 +47,21 @@ class NotificationReceiverImpl implements INotificationListener{
 
   void _handleNotification(Map<String, dynamic> data) {
     try {
-      final DateTime timestamp = DateTime.now();
-      
-      final String appTitle = data['titleText'] ?? 'Unknown Sender';
-      final String appBody = data['bodyText'] ?? '';
-      final String appSub = data['subText'] ?? '';
-      final String pkgName = data['packageName'] ?? 'Unknown Package';
+      final notification = AppNotification(
+        id: DateTime.now().microsecondsSinceEpoch, 
+        appName: data['titleText'] ?? 'Unknown Sender',
+        title: data['titleText'] ?? '',
+        body: data['bodyText'] ?? '',
+        timestamp: DateTime.now(),
+        colorValue: data['color'] ?? 0, // Ensure you have a default
+        packageName: data['packageName'] ?? 'Unknown',
+        expiresAt: DateTime.now().add(const Duration(minutes: 5)),
+      );
 
       _connectionManager.send(
         'notification', 
         'receive', 
-        {
-          'app': appTitle,
-          'timestamp': timestamp.toIso8601String(),
-          'body': appBody,
-          'color': null,
-          'subText': appSub,
-          'packageName': pkgName,
-        }
+        notification.toMap()
       );
       debugPrint('[NotificationReceiver] Notification sent to server');
     } catch (e) {
