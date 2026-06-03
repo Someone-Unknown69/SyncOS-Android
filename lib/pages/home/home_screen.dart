@@ -45,7 +45,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       icon: Icons.terminal,
       onTap: () async {
         final notificationService = ref.read(notificationServiceProvider);
-
         notificationService.showTestNotification();
       },
     ),

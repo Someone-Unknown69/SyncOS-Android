@@ -61,7 +61,8 @@ class NotificationServiceImpl implements INotificationService {
       onlyAlertOnce: true,
       ongoing: isOngoing, // Dynamic status
       autoCancel: !isOngoing, // Allows the notification to disappear when clicked after finishing
-      
+      icon: '@mipmap/ic_launcher',
+
       actions: isOngoing ? <AndroidNotificationAction>[
         const AndroidNotificationAction(
           'cancel_transfer',
@@ -101,7 +102,7 @@ class NotificationServiceImpl implements INotificationService {
     required String title,
     String? body,
     int urgency = 1,
-    String icon = 'dialog-information',
+    String icon = '@mipmap/ic_launcher',
   }) async {
     final androidImportance = switch (urgency) {
       0 => Importance.low,

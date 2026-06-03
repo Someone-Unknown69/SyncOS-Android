@@ -47,7 +47,7 @@ class PairingService {
         return false;
       }
     } else {
-      debugPrint('[PairingService] token present, starting automatic pairing with token');
+      debugPrint('[PairingService] token present as $token, starting automatic pairing with token');
       try {
         debugPrint('[PairingService] saving temporary pairing token');
         await _storage.setPairingToken(token);
