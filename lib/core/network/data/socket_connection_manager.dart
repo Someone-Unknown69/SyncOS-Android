@@ -159,14 +159,20 @@ class SocketConnectionManager implements IConnectionManager{
       final bytes = _buffer.toBytes();
       final length = ByteData.view(bytes.buffer).getUint32(0, Endian.big);
 
-      if (bytes.length < 4 + length) break; // Wait for more data
+      if (bytes.length < 4 + length) break;
 
       final payload = bytes.sublist(4, 4 + length);
       _buffer.clear();
       if (bytes.length > 4 + length) _buffer.add(bytes.sublist(4 + length));
 
       try {
-        final message = utf8.decode(payload);
+        final String message;
+        if (payload.length >= 2 && payload[0] == 0x1F && payload[1] == 0x8B) {
+          message = utf8.decode(gzip.decode(payload));
+        } else {
+          message = utf8.decode(payload);
+        }
+
         if (message == 'PONG') {
           _pongTimeoutTimer?.cancel();
           continue;
@@ -257,10 +263,12 @@ class SocketConnectionManager implements IConnectionManager{
 
   void _sendRaw(String msg) {
     try{
-      final data = utf8.encode(msg);
-      final header = ByteData(4)..setUint32(0, data.length, Endian.big);
-      _socket?.add(header.buffer.asUint8List());
-      _socket?.add(data);
+      final rawBytes = utf8.encode(msg);
+      final compressedBytes = gzip.encode(rawBytes);
+
+      final lengthBytes = ByteData(4)..setUint32(0, compressedBytes.length, Endian.big);
+      _socket?.add(lengthBytes.buffer.asUint8List());
+      _socket?.add(compressedBytes);
     } catch(_) {}
   }
 
