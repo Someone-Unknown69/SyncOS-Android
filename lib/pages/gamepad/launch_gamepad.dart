@@ -19,6 +19,7 @@ class _LaunchGamepadState extends ConsumerState<LaunchGamepad> {
   void initState() {
     super.initState();
     _usbControllerService = USBControllerService(ref.read(connectionManagerProvider));
+    _usbControllerService.sendEvent('start', {});
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
@@ -28,6 +29,7 @@ class _LaunchGamepadState extends ConsumerState<LaunchGamepad> {
 
   @override
   void dispose() {
+    _usbControllerService.sendEvent('stop', {});
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
