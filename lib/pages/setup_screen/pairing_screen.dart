@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_controller/core/config/app_router.dart';
-import 'package:mobile_controller/core/config/app_routes.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../theme/app_theme.dart';
 import '../../features/pairing/provider/pairing_notifier.dart';
@@ -49,7 +47,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
 
         debugPrint("success value of handlebarcode : $success");
         if (success) {
-          AppRouter.pushRoute(context, AppRoutes.mainScreen);
+          Navigator.pop(context);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Pairing failed: Authentication error')),
