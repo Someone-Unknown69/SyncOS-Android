@@ -1,4 +1,4 @@
-package com.example.mobile_controller
+package com.example.syncos_native
 
 import android.app.Notification
 import android.content.Intent

@@ -1,4 +1,4 @@
-package com.example.mobile_controller
+package com.example.syncos_native
 
 import android.content.ComponentName
 import android.content.Context
@@ -30,20 +30,28 @@ class MusicDetectionHandler(private val context: Context) {
     private var cachedMetadataId: String? = null
 
     companion object {
-        private var instance: MusicDetectionHandler? = null
+        @Volatile
+        var activeInstance: MusicDetectionHandler? = null
 
-        fun getInstance(): MusicDetectionHandler? = instance
+        fun getInstance(): MusicDetectionHandler? = activeInstance
 
         fun sendMusicEvent(musicInfo: Map<String, Any?>) {
-            instance?.eventSink?.success(musicInfo)
+            if (activeInstance == null) {
+                Log.w("MusicDetection", "sendMusicEvent: activeInstance is NULL!")
+                return
+            }
+            val currentSink = activeInstance?.eventSink
+            if (currentSink == null) {
+                Log.w("MusicDetection", "sendMusicEvent: activeInstance exists but eventSink is NULL!")
+                return
+            }
+            currentSink.success(musicInfo)
         }
     }
 
-    init {
-        instance = this
-    }
-
     fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        activeInstance = this
+        Log.d("MusicDetection", "MusicDetectionHandler globally configured.")
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "initializeMusicDetection" -> {
@@ -76,23 +84,34 @@ class MusicDetectionHandler(private val context: Context) {
 
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, EVENT_CHANNEL).setStreamHandler(
             object : EventChannel.StreamHandler {
+                private var registeredSink: EventChannel.EventSink? = null
+
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                    eventSink = events
                     Log.d("MusicDetection", "Dart is now listening")
+                    registeredSink = events
+                    eventSink = events
                     registerPlaybackCallbacks()
                 }
                 override fun onCancel(arguments: Any?) {
-                    eventSink = null
-                    unregisterPlaybackCallbacks()
+                    if (eventSink === registeredSink) {
+                        Log.d("MusicDetection", "Dart cancelled stream")
+                        eventSink = null
+                        unregisterPlaybackCallbacks()
+                    } else {
+                        Log.d("MusicDetection", "onCancel ignored (sink belongs to another engine)")
+                    }
+                    registeredSink = null
                 }
             }
         )
     }
 
     private fun initializeMusicDetection() {
+        Log.d("MusicDetection", "initializeMusicDetection called from Flutter")
         try {
             if (mediaSessionManager == null) {
                 mediaSessionManager = context.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
+                Log.d("MusicDetection", "MediaSessionManager acquired successfully")
             }
         } catch (e: Exception) {
             Log.e("MusicDetection", "Failed to get MediaSessionManager: ${e.message}")
@@ -131,12 +150,17 @@ class MusicDetectionHandler(private val context: Context) {
     }
 
     internal fun registerPlaybackCallbacks() {
+        Log.d("MusicDetection", "registerPlaybackCallbacks called")
         val managerCopy = mediaSessionManager
-        if (!isNotificationListenerEnabled() || managerCopy == null) return
+        if (managerCopy == null) {
+            Log.w("MusicDetection", "Cannot register callbacks: mediaSessionManager is null (initializeMusicDetection not yet called)")
+            return
+        }
         unregisterPlaybackCallbacks()
         
         try {
             val controllers = managerCopy.getActiveSessions(listenerComponent)
+            Log.d("MusicDetection", "registerPlaybackCallbacks: Found ${controllers.size} active sessions")
             for (controller in controllers) {
                 val callback = object : MediaController.Callback() {
                     override fun onPlaybackStateChanged(state: PlaybackState?) {
@@ -158,19 +182,27 @@ class MusicDetectionHandler(private val context: Context) {
     private fun emitMetadata(controller: MediaController, state: PlaybackState?, attempt: Int = 0) {
         val metadata = controller.metadata ?: return
         
-        var art = getAlbumArtBase64(metadata)
-        
-        // If art is missing and we haven't hit our retry limit (e.g., 5 retries)
-        if (art == null && attempt < 5) {
+        val art = getAlbumArtBase64(metadata)
+        val duration = if (metadata.containsKey(MediaMetadata.METADATA_KEY_DURATION))
+            metadata.getLong(MediaMetadata.METADATA_KEY_DURATION) else 0L
+
+        // Retry if art or duration is missing (both can arrive late from the app)
+        val artMissing = art == null
+        val durationMissing = duration <= 0L
+        Log.d("MusicDetection", "emitMetadata: current artMissing=$artMissing, durationMissing=$durationMissing")
+
+        if (artMissing && attempt < 5) {
+            Log.d("MusicDetection", "emitMetadata: Retrying (attempt $attempt), artMissing=$artMissing, durationMissing=$durationMissing")
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 emitMetadata(controller, controller.playbackState, attempt + 1)
-            }, 300) // Poll every 300ms
+            }, 300)
         } else {
-            sendMusicEvent(createPayload(controller, state, metadata, art))
+            if (durationMissing) Log.w("MusicDetection", "emitMetadata: Sending event with no duration after $attempt retries")
+            sendMusicEvent(createPayload(controller, state, metadata, art, duration))
         }
     }
 
-    private fun createPayload(controller: MediaController, state: PlaybackState?, metadata: MediaMetadata, art: String?): Map<String, Any?> {
+    private fun createPayload(controller: MediaController, state: PlaybackState?, metadata: MediaMetadata, art: String?, duration: Long): Map<String, Any?> {
         return mapOf(
             "permissionGranted" to true,
             "isPlaying" to (state?.state == PlaybackState.STATE_PLAYING),
@@ -178,8 +210,7 @@ class MusicDetectionHandler(private val context: Context) {
             "artist" to metadata.getString(MediaMetadata.METADATA_KEY_ARTIST),
             "album" to metadata.getString(MediaMetadata.METADATA_KEY_ALBUM),
             "packageName" to controller.packageName,
-            "duration" to if (metadata.containsKey(MediaMetadata.METADATA_KEY_DURATION))
-                metadata.getLong(MediaMetadata.METADATA_KEY_DURATION) else null,
+            "duration" to duration,
             "currentPosition" to state?.position,
             "albumArtBase64" to art
         )
@@ -231,6 +262,7 @@ class MusicDetectionHandler(private val context: Context) {
     }
 
     private fun getCurrentMusicInfo(): Map<String, Any?> {
+        Log.d("MusicDetection", "getCurrentMusicInfo called")
         val result = mutableMapOf<String, Any?>(
             "permissionGranted" to isNotificationListenerEnabled(),
             "isPlaying" to false, "title" to null, "artist" to null, "album" to null,
@@ -238,9 +270,11 @@ class MusicDetectionHandler(private val context: Context) {
         )
 
         val managerCopy = mediaSessionManager
-        if (isNotificationListenerEnabled() && managerCopy != null) {
+        val isEnabled = isNotificationListenerEnabled()
+        if (isEnabled && managerCopy != null) {
             try {
                 val controllers = managerCopy.getActiveSessions(listenerComponent)
+                Log.d("MusicDetection", "getCurrentMusicInfo: Found ${controllers.size} active sessions")
                 for (controller in controllers) {
                     val metadata = controller.metadata
                     val playbackState = controller.playbackState
@@ -273,8 +307,5 @@ class MusicDetectionHandler(private val context: Context) {
         eventSink = null
         cachedAlbumArt = null
         cachedMetadataId = null
-        if (instance == this) {
-            instance = null
-        }
     }
 }

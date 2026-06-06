@@ -1,4 +1,4 @@
-package com.example.mobile_controller
+package com.example.syncos_native
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -20,30 +20,27 @@ class NotificationHandler(private val context: Context) {
 
     companion object {
         @Volatile
-        private var instance: NotificationHandler? = null
+        var activeInstance: NotificationHandler? = null
 
-        fun getInstance(): NotificationHandler? = instance
+        fun getInstance(): NotificationHandler? = activeInstance
 
         fun sendNotification(notificationInfo: Map<String, Any?>) {
-            val currentInstance = instance
-            if (currentInstance == null) {
-                Log.e("Notification", "CRITICAL: Cannot send notification. Instance companion slot is NULL.")
+            val currentSink = activeInstance?.eventSink
+            if (currentSink == null) {
+                Log.w("Notification", "sendNotification: No active eventSink found")
                 return
             }
-            if (currentInstance.eventSink == null) {
-                Log.w("Notification", "WARNING: eventSink is NULL. Dart stream listener is not attached.")
-                return
-            }
-            currentInstance.eventSink?.success(notificationInfo)
+            currentSink.success(notificationInfo)
         }
     }
 
     fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        instance = this
-        Log.d("Notification", "NotificationHandler instance successfully bound to singleton slot")
+        activeInstance = this
+        Log.d("Notification", "NotificationHandler globally configured.")
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "initializeNotificationDetection" -> {
+                    Log.d("Notification", "initializeNotificationDetection called from Flutter")
                     result.success(isNotificationListenerEnabled())
                 }
                 "openNotificationSettings" -> {
@@ -60,14 +57,22 @@ class NotificationHandler(private val context: Context) {
 
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, EVENT_CHANNEL).setStreamHandler(
             object : EventChannel.StreamHandler {
+                private var registeredSink: EventChannel.EventSink? = null
+
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    registeredSink = events
                     eventSink = events
                     Log.d("Notification", "Dart is now listening")
                     registerLocalReceiver()
                 }
                 override fun onCancel(arguments: Any?) {
-                    unregisterLocalReceiver()
-                    eventSink = null
+                    if (eventSink === registeredSink) {
+                        unregisterLocalReceiver()
+                        eventSink = null
+                    } else {
+                        Log.d("Notification", "onCancel ignored (sink belongs to another engine)")
+                    }
+                    registeredSink = null
                 }
             }
         )
@@ -112,9 +117,7 @@ class NotificationHandler(private val context: Context) {
 
     fun dispose() {
         Log.d("Notification", "Disposing handler context resources")
+        unregisterLocalReceiver()
         eventSink = null
-        if (instance == this) {
-            instance = null
-        }
     }
 }

@@ -3,6 +3,8 @@ import 'package:mobile_controller/core/storage/data/prefs_storage.dart';
 import 'package:mobile_controller/core/storage/data/secure_storage.dart';
 import 'package:mobile_controller/core/storage/data/storage_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
+import 'package:flutter_background_service/flutter_background_service.dart';
 
 // Provider for the underlying SharedPreferences instance
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
@@ -22,6 +24,20 @@ final pairedProvider = StreamProvider<bool>((ref) async* {
   final initialStatus = await storage.isPaired;
   yield initialStatus;
 
-  // yield any future updates for any pairing status listeners
-  yield* storage.pairingStream;
+  final controller = StreamController<bool>();
+  
+  final sub1 = storage.pairingStream.listen(controller.add);
+  final sub2 = FlutterBackgroundService().on('paired_status').listen((event) {
+    if (event != null && event['isPaired'] != null) {
+      controller.add(event['isPaired'] as bool);
+    }
+  });
+
+  ref.onDispose(() {
+    sub1.cancel();
+    sub2.cancel();
+    controller.close();
+  });
+
+  yield* controller.stream;
 });

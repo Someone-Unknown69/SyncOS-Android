@@ -49,9 +49,8 @@ class MediaServiceImpl implements IMediaService{
   @override
   Future<void> start() async {
     final granted = await _methodChannel.invokeMethod('initializeMusicDetection');
-    if (granted == true) {
-      _startListening();
-    }
+    debugPrint('[MediaService] initializeMusicDetection granted=$granted');
+    _startListening();
   }
 
   void _startListening() {

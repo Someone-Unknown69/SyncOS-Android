@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_controller/core/storage/provider/storage_service_provider.dart';
 import '../domain/i_connection_manager.dart';
-import '../data/socket_connection_manager.dart';
+import '../data/proxy_connection_manager.dart';
 
 /// The global access point for connection system.
 /// 
@@ -17,14 +17,13 @@ import '../data/socket_connection_manager.dart';
 ///
 /// FUTURE-PROOFING:
 ///    If in case we decide to switch from TCP to Bluetooth, simply change 
-///    'SocketConnectionManager()' to 'BluetoothConnectionManager()' 
+///    'ProxyConnectionManager()' to 'BluetoothConnectionManager()' 
 ///    right here. The rest of your app requires ZERO changes.
 
 final connectionManagerProvider = Provider<IConnectionManager>((ref) {
   // In case of changing conenection manager in future, ONLY THIS FILE shall be changed
-  final storage = ref.watch(storageServiceProvider);
-
-  final manager = SocketConnectionManager(storage);
+  
+  final manager = ProxyConnectionManager();
   
   ref.onDispose(() => manager.disconnect());
   
