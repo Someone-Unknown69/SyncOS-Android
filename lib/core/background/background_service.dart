@@ -133,7 +133,7 @@ void onStart(ServiceInstance service) async {
   container.read(autoConnectProvider);
 
   // DEBUG: Print a message every 5 seconds to prove the isolate is alive
-  Timer.periodic(const Duration(seconds: 5), (timer) {
+  Timer.periodic(const Duration(seconds: 30), (timer) {
     debugPrint('[BACKGROUND ISOLATE] Service is currently running at Time: ${DateTime.now()}');
   });
 }

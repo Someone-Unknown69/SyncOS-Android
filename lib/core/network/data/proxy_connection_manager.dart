@@ -2,14 +2,16 @@ import 'dart:async';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
 import 'package:mobile_controller/core/network/domain/connection_config.dart';
+import 'package:rxdart/rxdart.dart';
 
 class ProxyConnectionManager implements IConnectionManager {
   final _service = FlutterBackgroundService();
   
-  final _statusController = StreamController<ConnectionStatus>.broadcast();
+  final _statusController = BehaviorSubject<ConnectionStatus>.seeded(
+    ConnectionStatus.disconnected,
+  );
   final _rawMessageController = StreamController<String>.broadcast();
   
-  ConnectionStatus _status = ConnectionStatus.disconnected;
   ConnectionConfig? _activeConfig;
 
   ProxyConnectionManager() {
@@ -20,14 +22,15 @@ class ProxyConnectionManager implements IConnectionManager {
           (e) => e.toString() == statusStr, 
           orElse: () => ConnectionStatus.disconnected
         );
-        _status = newStatus;
+
+        if (event['config'] != null) {
+          _activeConfig = ConnectionConfig.fromMap(Map<String, dynamic>.from(event['config']));
+        } else {
+          _activeConfig = null;
+        }
+
         _statusController.add(newStatus);
-      }
-      if (event != null && event['config'] != null) {
-        _activeConfig = ConnectionConfig.fromMap(Map<String, dynamic>.from(event['config']));
-      } else {
-        _activeConfig = null;
-      }
+      }  
     });
 
     _service.on('raw_message').listen((event) {
@@ -36,9 +39,11 @@ class ProxyConnectionManager implements IConnectionManager {
       }
     });
     
-    // Request initial state from background in case it was already connected
+    // Request initial state from background
     _service.invoke('request_initial_state');
   }
+
+  
 
   @override
   Stream<ConnectionStatus> get connectionStatusStream => _statusController.stream;
@@ -50,7 +55,7 @@ class ProxyConnectionManager implements IConnectionManager {
   ConnectionConfig? get activeConfig => _activeConfig;
 
   @override
-  ConnectionStatus get status => _status;
+  ConnectionStatus get status => _statusController.value;
 
   @override
   Future<void> connect(ConnectionConfig config) async {

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:math';
 import 'package:mobile_controller/core/storage/data/storage_service.dart';
+import 'package:rxdart/rxdart.dart';
 
 import '../domain/i_connection_manager.dart';
 import '../domain/connection_config.dart';
@@ -16,11 +17,11 @@ class SocketConnectionManager implements IConnectionManager{
 
   Socket? _socket;
   final _messageController = StreamController<String>.broadcast();
-  final _statusController = StreamController<ConnectionStatus>.broadcast();
+  final _statusController = BehaviorSubject<ConnectionStatus>.seeded(
+    ConnectionStatus.disconnected,
+  );
   final BytesBuilder _buffer = BytesBuilder();
   
-  ConnectionStatus _status = ConnectionStatus.disconnected;
-
   ConnectionConfig? _currentConfig;
 
   Completer<void>? _authCompleter;
@@ -35,7 +36,7 @@ class SocketConnectionManager implements IConnectionManager{
   // ---------------------------------    Getters    -------------------------------------------- 
   
   @override
-  ConnectionStatus get status => _status;
+  ConnectionStatus get status => _statusController.value;
   @override
   ConnectionConfig? get activeConfig => _currentConfig;
 
@@ -43,13 +44,7 @@ class SocketConnectionManager implements IConnectionManager{
   Stream<String> get rawMessageStream => _messageController.stream;
 
   @override
-  Stream<ConnectionStatus> get connectionStatusStream =>
-      Stream<ConnectionStatus>.multi((controller) {
-    // Emit current status immediately for new subscribers
-    controller.add(_status);
-    final sub = _statusController.stream.listen((s) => controller.add(s));
-    controller.onCancel = () => sub.cancel();
-  });
+  Stream<ConnectionStatus> get connectionStatusStream => _statusController.stream;
 
   // -----------------------------    Public interface      -------------------------------------
 
@@ -58,15 +53,12 @@ class SocketConnectionManager implements IConnectionManager{
     ConnectionConfig config,
   ) async {
     if (config is TcpConfig) {
-      if (_status == ConnectionStatus.connecting || _status == ConnectionStatus.connected) return;
+      if (status == ConnectionStatus.connecting || status == ConnectionStatus.connected) return;
       
       _currentConfig = config;
-
-      _status = ConnectionStatus.connecting;
-      _statusController.add(_status);
+      _statusController.add(ConnectionStatus.connecting);
 
       debugPrint('[Socket] Initializing TCP connection to ${config.ip}');
-
       await _attemptConnection(config.ip, config.port);
     } else {
       throw UnsupportedError("This manager only supports TCP connections");
@@ -78,8 +70,7 @@ class SocketConnectionManager implements IConnectionManager{
     ConnectionConfig config,
   ) async {
     if (config is TcpConfig) {
-      _status = ConnectionStatus.pairing;
-      _statusController.add(_status);
+      _statusController.add(ConnectionStatus.pairing);
       
       debugPrint('[Socket] Sending Pair Request');
 
@@ -102,12 +93,14 @@ class SocketConnectionManager implements IConnectionManager{
   void disconnect() {
     _shouldReconnect = false;
     _isReconnecting = false;
-    _status = ConnectionStatus.disconnected;
+    
     if (_authCompleter != null && !_authCompleter!.isCompleted) {
-      _authCompleter!.completeError('Disconnected');
+      _authCompleter!.completeError('Disconnected manually');
     }
+    
     _cleanup();
     _statusController.add(ConnectionStatus.disconnected);
+    debugPrint('[Socket] Disconnected manually. Reconnect disabled.');
   }
 
   /// ------------------      core implementation      ------------------------------
@@ -115,6 +108,7 @@ class SocketConnectionManager implements IConnectionManager{
   Future<void> _attemptConnection(String ip, int port) async {
     try {
       _authCompleter = Completer<void>();
+      _cleanup();
 
       // TODO : Implement secure socket on both sides
       _socket = await Socket.connect(
@@ -201,8 +195,8 @@ class SocketConnectionManager implements IConnectionManager{
         }
 
       } else if (action == 'rejected') {
-        _status = (op == 'auth') ? ConnectionStatus.unauthorized : ConnectionStatus.disconnected;
-        _statusController.add(_status);
+        final failureState = (op == 'auth') ? ConnectionStatus.unauthorized : ConnectionStatus.disconnected;
+        _statusController.add(failureState);
         _cleanup();
 
         if (_authCompleter != null && !_authCompleter!.isCompleted) {
@@ -212,7 +206,7 @@ class SocketConnectionManager implements IConnectionManager{
       return;
     }
     
-    if (_status == ConnectionStatus.connected) {
+    if (status == ConnectionStatus.connected) {
       _messageController.add(jsonEncode(data));
       return;
     }
@@ -222,8 +216,7 @@ class SocketConnectionManager implements IConnectionManager{
     _retryCount = 0;
     _isReconnecting = false;
 
-    _status = ConnectionStatus.connected;
-    _statusController.add(_status);
+    _statusController.add(ConnectionStatus.connected);
     _startHeartbeat();
 
     if (token != null) _storage.setPairingToken(token);
@@ -232,11 +225,16 @@ class SocketConnectionManager implements IConnectionManager{
   void _triggerReconnect() {
     if (!_shouldReconnect) return;
 
-    debugPrint("This is runnin even when unpaired");
+    if (status == ConnectionStatus.pairing) {
+      debugPrint("[Socket] Pairing failed or dropped. Aborting reconnection attempts.");
+      _statusController.add(ConnectionStatus.disconnected);
+      _cleanup();
+      return;
+    }
+
     _cleanup();
     _isReconnecting = true;
-    _status = ConnectionStatus.reconnecting;
-    _statusController.add(_status);
+    _statusController.add(ConnectionStatus.reconnecting);
 
     final delay = min(pow(2, _retryCount).toInt(), 30);
 
@@ -250,7 +248,6 @@ class SocketConnectionManager implements IConnectionManager{
         }
       });
     }
-
   }
 
   void _startHeartbeat() {
