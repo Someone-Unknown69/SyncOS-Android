@@ -12,6 +12,7 @@ import 'pages/main_layout/main_layout.dart';
 import 'pages/setup_screen/setup_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/storage/provider/storage_service_provider.dart';
+import 'core/handler/provider/command_dispatcher_provider.dart';
 
 // Requests battery optimization exemption once. Without this, aggressive OEM
 // devices (Realme/OPPO/Xiaomi) will kill the background service when the screen
@@ -49,11 +50,24 @@ void main() async {
 }
 
 
-class RemoteControllerApp extends ConsumerWidget {
+class RemoteControllerApp extends ConsumerStatefulWidget {
   const RemoteControllerApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RemoteControllerApp> createState() => _RemoteControllerAppState();
+}
+
+class _RemoteControllerAppState extends ConsumerState<RemoteControllerApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(commandDispatcherProvider).start();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final themeSettings = ref.watch(themeProvider);
     final paired = ref.watch(pairedProvider);
 
