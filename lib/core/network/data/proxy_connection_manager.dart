@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
 import 'package:mobile_controller/core/network/domain/connection_config.dart';
@@ -11,6 +12,8 @@ class ProxyConnectionManager implements IConnectionManager {
     ConnectionStatus.disconnected,
   );
   final _rawMessageController = StreamController<String>.broadcast();
+
+  final _nearbyDevicesController = StreamController<(ConnectionConfig, String)>.broadcast();
   
   ConnectionConfig? _activeConfig;
 
@@ -38,12 +41,20 @@ class ProxyConnectionManager implements IConnectionManager {
         _rawMessageController.add(event['message'] as String);
       }
     });
+
+    _service.on('device_discovery').listen((event) {
+      if (event != null && event['config'] != null) {
+        debugPrint("Device discovered with ${event['deviceName']}");
+        
+        final Map<String, dynamic> configMap = Map<String, dynamic>.from(event['config'] as Map);
+        final ConnectionConfig config = ConnectionConfig.fromMap(configMap);
+        _nearbyDevicesController.add((config, event['deviceName'] as String));
+      }
+    });
     
     // Request initial state from background
     _service.invoke('request_initial_state');
   }
-
-  
 
   @override
   Stream<ConnectionStatus> get connectionStatusStream => _statusController.stream;
@@ -56,6 +67,29 @@ class ProxyConnectionManager implements IConnectionManager {
 
   @override
   ConnectionStatus get status => _statusController.value;
+
+  @override
+  Stream<(ConnectionConfig, String)> get nearbyDevicesStream => _nearbyDevicesController.stream;
+
+  @override
+  void start() async {
+    _service.invoke('start');
+  }
+
+  @override 
+  void discoverDevices() async {
+    _service.invoke('discoverDevices');
+  }
+
+  @override
+  void stopDiscovery() async {
+    _service.invoke('stopDiscovery');
+  }
+
+  @override
+  Future<void> autoConnectionStart() async {
+    _service.invoke('autoConnectionStart');
+  }
 
   @override
   Future<void> connect(ConnectionConfig config) async {
@@ -80,4 +114,10 @@ class ProxyConnectionManager implements IConnectionManager {
       'args': args,
     });
   }
+
+  @override
+  Future<void> unpair() async {
+    _service.invoke('unpair');
+  }
+
 }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_controller/core/network/provider/auto_connect_provider.dart';
 import 'package:mobile_controller/features/battery/provider/remote_battery_state.dart';
 import 'package:mobile_controller/features/device_info/provider/remote_device_info_state.dart';
 import '../../../core/network/provider/connection_provider.dart';
@@ -14,7 +13,7 @@ class Header extends ConsumerWidget {
     final theme = Theme.of(context);
 
     final connectionManager = ref.read(connectionManagerProvider);
-    final currentGreeting = ref.watch(greetingProvider);
+    final currentGreeting = "I will code later";
 
     return Container(
       margin: const EdgeInsets.only(

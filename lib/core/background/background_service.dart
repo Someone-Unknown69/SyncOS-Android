@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_controller/core/handler/provider/service_coordinator_provider.dart';
-import 'package:mobile_controller/core/network/provider/auto_connect_provider.dart';
 import 'package:mobile_controller/core/network/provider/connection_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile_controller/core/storage/provider/storage_service_provider.dart';
@@ -88,6 +87,13 @@ void onStart(ServiceInstance service) async {
     service.invoke('paired_status', {'isPaired': isPaired});
   });
 
+  connectionManager.nearbyDevicesStream.listen((data) {
+    service.invoke('device_discovery', {
+      'config': data.$1,
+      'deviceName': data.$2,
+    });
+  });
+
   // Listen to UI commands
   service.on('connect').listen((event) {
     if (event != null && event['config'] != null) {
@@ -125,12 +131,7 @@ void onStart(ServiceInstance service) async {
     });
   });
 
-  // IMPORTANT: coordinator must be initialized BEFORE autoConnect so it is already
-  // subscribed to connectionStatusStream when the connection attempt fires 'connected'.
-  // If autoConnect fires first, the 'connected' event can arrive before coordinator
-  // has subscribed and services will never start.
   container.read(serviceCoordinatorProvider);
-  container.read(autoConnectProvider);
 
   // DEBUG: Print a message every 5 seconds to prove the isolate is alive
   Timer.periodic(const Duration(seconds: 30), (timer) {

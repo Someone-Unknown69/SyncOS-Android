@@ -34,5 +34,15 @@ class TcpConfig extends ConnectionConfig {
         ip: json['ip'] ?? '127.0.0.1',
         port: json['port'] ?? 8080,
       );
-}
 
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TcpConfig &&
+          runtimeType == other.runtimeType &&
+          ip == other.ip &&
+          port == other.port;
+
+  @override
+  int get hashCode => ip.hashCode ^ port.hashCode;
+}

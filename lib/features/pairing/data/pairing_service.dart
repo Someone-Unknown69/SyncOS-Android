@@ -13,16 +13,14 @@ class PairingService {
     this._storage,
   );
 
-  Future<bool> pairWithServer(Map<String, dynamic> data) async {
-    debugPrint('[PairingService] pairWithServer called with data: $data');
-    final config = ConnectionConfig.fromMap(data);
+  Future<bool> pairWithServer(ConnectionConfig config, String? token) async {
+    debugPrint('[PairingService] pairWithServer called with data: ${config.toJson()}');
 
     final statusFuture = _connectionManager.connectionStatusStream
     .where((s) => s == ConnectionStatus.connected || s == ConnectionStatus.unauthorized) // Filter out everything else
     .first // Take the first successful connection or unauthorized connection
     .timeout(const Duration(seconds: 10));
 
-    final token = data['token'] as String?;
 
     if (token == null) {
       try {

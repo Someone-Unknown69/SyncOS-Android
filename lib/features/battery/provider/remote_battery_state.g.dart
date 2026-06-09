@@ -41,7 +41,7 @@ final class BatteryNotifierProvider
   }
 }
 
-String _$batteryNotifierHash() => r'f4a3895f190f2f637069f51c36492b071d22b5f8';
+String _$batteryNotifierHash() => r'06bc81ce38fc43b243e7dfe7f5440aeff1522779';
 
 abstract class _$BatteryNotifier extends $Notifier<BatteryState> {
   BatteryState build();

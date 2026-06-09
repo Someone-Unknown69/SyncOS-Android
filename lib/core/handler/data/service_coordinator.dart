@@ -29,6 +29,8 @@ class ServiceCoordinator {
   }
 
   void _init() {
+    _connectionManager.start();
+
     _connectionSubscription = _connectionManager.connectionStatusStream.listen((status) async {
       if (status == ConnectionStatus.connected) {
         await _startServices();

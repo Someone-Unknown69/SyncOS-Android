@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:math';
+import 'package:crypto/crypto.dart';
+import 'package:flutter/rendering.dart';
 import 'package:mobile_controller/core/storage/data/storage_service.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -20,11 +22,15 @@ class SocketConnectionManager implements IConnectionManager{
   final _statusController = BehaviorSubject<ConnectionStatus>.seeded(
     ConnectionStatus.disconnected,
   );
+  final _nearbyDevicesController = StreamController<(ConnectionConfig, String)>.broadcast();
   final BytesBuilder _buffer = BytesBuilder();
   
   ConnectionConfig? _currentConfig;
 
   Completer<void>? _authCompleter;
+  
+  // discovery Socket
+  RawDatagramSocket? _udpSocket;
   
   // state management
   Timer? _heartbeatTimer;
@@ -32,6 +38,14 @@ class SocketConnectionManager implements IConnectionManager{
   bool _isReconnecting = false;
   bool _shouldReconnect = true;
   int _retryCount = 0;
+  final int _discoveryPort = 6767;
+
+  final int _maxRetries = 4;
+
+  RawDatagramSocket? _discoverySocket;
+  RawDatagramSocket? _autoConnectSocket;
+  
+  final Set<ConnectionConfig> _discoveredConfigsCache = {};
 
   // ---------------------------------    Getters    -------------------------------------------- 
   
@@ -46,12 +60,167 @@ class SocketConnectionManager implements IConnectionManager{
   @override
   Stream<ConnectionStatus> get connectionStatusStream => _statusController.stream;
 
+  @override
+  Stream<(ConnectionConfig, String)> get nearbyDevicesStream => _nearbyDevicesController.stream;
+
   // -----------------------------    Public interface      -------------------------------------
+
+  @override
+  void start() async {
+    final isPaired = await _storage.isPaired;
+
+    if(isPaired) {
+      autoConnectionStart();
+    } else {
+      discoverDevices();
+    }
+  }
+
+  @override
+  void discoverDevices() async {
+    try {
+      stopDiscovery(); 
+      _discoveredConfigsCache.clear();
+
+      _discoverySocket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, _discoveryPort);
+      debugPrint('[Pairing] Discovering nearby devices...');
+
+      final currentSocket = _discoverySocket;
+      if (currentSocket == null) return;
+
+      await for (RawSocketEvent event in currentSocket) {
+        if (_discoverySocket == null) break;
+
+        if (event == RawSocketEvent.read) {
+          Datagram? dg = currentSocket.receive();
+          if (dg == null) continue;
+
+          try {
+            final Map<String, dynamic> payload = jsonDecode(utf8.decode(dg.data));
+
+            if (payload['service'] == 'SyncOS-server' && payload['status'] == 'pairing_mode') {
+              final discoveredConfig = ConnectionConfig.fromMap(payload['config']);
+
+              if (!_discoveredConfigsCache.contains(discoveredConfig)) {
+                _discoveredConfigsCache.add(discoveredConfig);
+
+                debugPrint("[Pairing] New Server Discovered: ${payload['config']}");
+                _nearbyDevicesController.add((discoveredConfig, payload['deviceName']));
+              }
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (e) {
+      debugPrint('[Pairing] Binding error: $e');
+    }
+  }
+
+
+
+  @override
+  void stopDiscovery() {
+    debugPrint('[Socket] Stopping device discovery');
+    _udpSocket?.close();
+    _udpSocket = null;
+  }
+
+  @override
+  Future<void> autoConnectionStart() async {
+    try {
+      _autoConnectSocket?.close();
+      _autoConnectSocket = await RawDatagramSocket.bind(
+        InternetAddress.anyIPv4, 
+        _discoveryPort,
+        reuseAddress: true,
+      );
+      debugPrint('[Socket] Auto Connection Turned ON');
+
+      final currentSocket = _autoConnectSocket;
+      if (currentSocket == null) return;
+
+      await for (RawSocketEvent event in currentSocket) {
+        if (_autoConnectSocket == null) break;
+
+        if (event == RawSocketEvent.read) {
+          Datagram? dg = currentSocket.receive();
+          if (dg == null) continue;
+
+
+          try {
+            final Map<String, dynamic> payload = jsonDecode(utf8.decode(dg.data));
+
+
+            if (payload['service'] == 'SyncOS-server') {
+              
+              final String serverTimestamp = payload['timestamp'] ?? '';
+              final String serverSignature = payload['signature'] ?? '';
+
+              final localToken = await _storage.getPairingToken();
+              if (localToken == null || localToken.isEmpty) {
+                debugPrint('[Auto Connect] No pairing token stored locally, Aborting.');
+                continue;
+              }
+
+              final config = ConnectionConfig.fromMap(payload['config']);
+
+              // Verify server authenticity
+              final bool isVerified = _verifyServerHMAC(serverTimestamp, serverSignature, localToken);
+
+              if (!isVerified) {
+                debugPrint('[Security Warning] Received unauthenticated verification');
+                continue;
+              }
+
+              debugPrint('[Auto Connect] Valid authentication identity.');
+              
+              // close and connect natively
+              _autoConnectSocket?.close();
+              _autoConnectSocket = null;
+
+              await connect(config);
+              return;
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (e) {
+      debugPrint('[Auto Connect] Passive loop fault: $e');
+    }
+  }
+
+  /// securityyyyyy
+  bool _verifyServerHMAC(String timestampStr, String signature, String secretKey) {
+    try {
+      final int serverTime = int.parse(timestampStr);
+      final int localTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+      // Packet must be created within the last 15 seconds
+      if ((localTime - serverTime).abs() > 15) {
+        debugPrint('[Security] Expired packet verification dropped. Diff: ${(localTime - serverTime).abs()}s');
+        return false;
+      }
+
+      // Compute local comparison hash
+      final keyBytes = utf8.encode(secretKey);
+      final messageBytes = utf8.encode(timestampStr);
+
+      final hmac = Hmac(sha256, keyBytes);
+      final computedSignature = hmac.convert(messageBytes).toString();
+
+      return computedSignature == signature;
+    } catch (e) {
+      return false;
+    }
+  }
 
   @override
   Future<void> connect(
     ConnectionConfig config,
   ) async {
+    // Stop discovering clients if it is called by pairing screen
+    stopDiscovery();
+
     if (config is TcpConfig) {
       if (status == ConnectionStatus.connecting || status == ConnectionStatus.connected) return;
       
@@ -74,13 +243,19 @@ class SocketConnectionManager implements IConnectionManager{
       
       debugPrint('[Socket] Sending Pair Request');
 
-
       await _attemptConnection(config.ip, config.port);
     } else {
       throw UnsupportedError("This manager only supports TCP Connections");
     }
   }
 
+  @override
+  Future<void> unpair() async {
+    _sendRaw(jsonEncode({'op' : 'unpair'}), compress: false);
+    debugPrint('[Socket] Unpairing with server');
+    disconnect();
+    await _clearConnectionInfo();
+  }
 
   @override
   void send(String op, String action, Map<String, dynamic> args) {
@@ -144,7 +319,7 @@ class SocketConnectionManager implements IConnectionManager{
       debugPrint("[Socket] Authentication successful, entering data mode");
     } catch(e) {
       debugPrint('[Socket] Connection failed: $e');
-      _triggerReconnect();
+      autoConnectionStart();
     }
   }
 
@@ -205,6 +380,12 @@ class SocketConnectionManager implements IConnectionManager{
       }
       return;
     }
+
+    if(op == 'unpair') {
+      _clearConnectionInfo();
+      disconnect();
+      debugPrint('[Socket] Remote device unpaired');
+    }
     
     if (status == ConnectionStatus.connected) {
       _messageController.add(jsonEncode(data));
@@ -213,6 +394,7 @@ class SocketConnectionManager implements IConnectionManager{
   }
 
   void _finalizeConnection({String? token}) {
+    debugPrint("[Socket] Finalizing connection with token $token");
     _retryCount = 0;
     _isReconnecting = false;
 
@@ -232,15 +414,23 @@ class SocketConnectionManager implements IConnectionManager{
       return;
     }
 
+    if (_retryCount >= _maxRetries) {
+      debugPrint("[Socket] Max TCP retries reached. Shifting to Auto-Discovery mode.");
+      _cleanup();
+      _retryCount = 0; 
+      autoConnectionStart(); // Start listening for the broadcast
+      return;
+    }
+
     _cleanup();
     _isReconnecting = true;
     _statusController.add(ConnectionStatus.reconnecting);
 
     final delay = min(pow(2, _retryCount).toInt(), 30);
-
     final config = _currentConfig;
 
     if(config is TcpConfig) {
+      debugPrint("[Socket] Retrying TCP connection to ${config.ip} (Attempt ${_retryCount + 1}/$_maxRetries) in ${delay}s");
       Future.delayed(Duration(seconds: delay), () {
         if (_shouldReconnect && _isReconnecting) {
           _retryCount++;
@@ -258,15 +448,21 @@ class SocketConnectionManager implements IConnectionManager{
     });
   }
 
-  void _sendRaw(String msg) {
-    try{
+  void _sendRaw(String msg, {bool compress = true}) {
+    try {
       final rawBytes = utf8.encode(msg);
-      final compressedBytes = gzip.encode(rawBytes);
+      
+      final List<int> payload = compress ? gzip.encode(rawBytes) : rawBytes;
 
-      final lengthBytes = ByteData(4)..setUint32(0, compressedBytes.length, Endian.big);
-      _socket?.add(lengthBytes.buffer.asUint8List());
-      _socket?.add(compressedBytes);
-    } catch(_) {}
+      final lengthBytes = ByteData(4)..setUint32(0, payload.length, Endian.big);
+      
+      final socket = _socket;
+      
+      socket!.add(lengthBytes.buffer.asUint8List());
+      socket.add(payload);
+    } catch (e) {
+      debugPrint('[Server/Client] Send raw error: $e');
+    }
   }
 
   void _cleanup() {
@@ -275,19 +471,26 @@ class SocketConnectionManager implements IConnectionManager{
     _socket?.destroy();
     _socket = null;
   }
+  
+  Future<void> _clearConnectionInfo() async {
+    try {
+      await _storage.clearConnectionConfig();
+      await _storage.clearPairingToken();
+      _cleanup();
 
+      debugPrint('[Socket] Paired device Info cleared successfully');
+    } catch (e) {
+      debugPrint('[Socket] Error while clearing connection info of unpaired device');
+    }
+  }
 
   void _handleError() => _triggerReconnect();
 
   void _sendAuth(String token) {
-    if (_socket == null) return;
-    final payload = jsonEncode({"op": 'auth', "action": "", "args": {"token": token}});
-    _sendRaw(payload);
+  _sendRaw(jsonEncode({"op": 'auth', "args": {"token": token}}), compress: false);
   }
 
   void _pair() {
-    if (_socket == null) return;
-    final payload = jsonEncode({"op": 'pair', "action": "", "args": {}});
-    _sendRaw(payload);
+    _sendRaw(jsonEncode({"op": 'pair', "args": {}}), compress: false);
   }
 }

@@ -12,19 +12,28 @@ enum ConnectionStatus {
 }
 
 abstract class IConnectionManager {
-
   // streams
   Stream<String> get rawMessageStream;
   Stream<ConnectionStatus> get connectionStatusStream;
+  Stream<(ConnectionConfig, String)> get nearbyDevicesStream;
 
   // status
   ConnectionConfig? get activeConfig;
   ConnectionStatus get status;
 
+  void start();
+
+  // Discovers nearby devices
+  void discoverDevices();
+  void stopDiscovery();
+  
   // connection and authorization
+  Future<void> autoConnectionStart();
   Future<void> connect(ConnectionConfig config);
-  Future<void> pair(ConnectionConfig config);
   void disconnect();
+
+  Future<void> pair(ConnectionConfig config);
+  Future<void> unpair();
 
   // The implementation handles the serialization.
   void send(String op, String action, Map<String, dynamic> args);

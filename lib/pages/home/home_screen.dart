@@ -14,12 +14,12 @@ import 'widgets/dashboard_grid.dart';
 import 'widgets/dashboard_header.dart';
 import 'package:mobile_controller/core/config/app_routes.dart';
 import 'package:mobile_controller/core/config/app_router.dart';
-import '../../core/network/provider/auto_connect_provider.dart';
+
 final _connectionStatusStreamProvider =
-  StreamProvider<ConnectionStatus>((ref) {
-    final connectionManager = ref.watch(connectionManagerProvider);
-    return connectionManager.connectionStatusStream;
-  });
+    StreamProvider<ConnectionStatus>((ref) {
+      final connectionManager = ref.watch(connectionManagerProvider);
+      return connectionManager.connectionStatusStream;
+    });
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -66,6 +66,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final connectionStatusAsync = ref.watch(_connectionStatusStreamProvider);
     final mediaInfo = ref.watch(musicProvider);
+    final connectionManager = ref.read(connectionManagerProvider);
 
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
@@ -82,7 +83,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             child: connectionStatusAsync.when(
               loading: () => const StatusWaiting(message: 'Connecting to Server...'),
-              error: (error, stackTrace) => StatusDisconnected(onReconnect: () => ref.read(autoConnectProvider).manualReconnect()),
+              error: (error, stackTrace) => StatusDisconnected(
+                onReconnect: () => connectionManager.autoConnectionStart(),
+              ),
               data: (connectionStatus) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -97,7 +100,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ] else if (connectionStatus == ConnectionStatus.reconnecting) ...[
                       const StatusWaiting(message: 'Connection lost. Reconnecting...'),
                     ] else ...[
-                      StatusDisconnected(onReconnect: () => ref.read(autoConnectProvider).manualReconnect()),
+                      StatusDisconnected(onReconnect: () => connectionManager.autoConnectionStart()),
                     ]
                   ],
                 );
