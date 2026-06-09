@@ -189,10 +189,8 @@ class MusicDetectionHandler(private val context: Context) {
         // Retry if art or duration is missing (both can arrive late from the app)
         val artMissing = art == null
         val durationMissing = duration <= 0L
-        Log.d("MusicDetection", "emitMetadata: current artMissing=$artMissing, durationMissing=$durationMissing")
 
         if (artMissing && attempt < 5) {
-            Log.d("MusicDetection", "emitMetadata: Retrying (attempt $attempt), artMissing=$artMissing, durationMissing=$durationMissing")
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 emitMetadata(controller, controller.playbackState, attempt + 1)
             }, 300)

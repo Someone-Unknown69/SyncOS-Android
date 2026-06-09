@@ -15,12 +15,7 @@ class MusicNotificationListenerService : NotificationListenerService() {
         super.onNotificationPosted(sbn)
 
         val extras = sbn.notification?.extras ?: return
-
-        val titleText = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: "N/A"
-        val bodyText = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: "N/A"
         val templateStyle = extras.getString(Notification.EXTRA_TEMPLATE) ?: "Standard"
-        val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: "N/A"
-
         val isMedia = templateStyle == """android.app.Notification${"$"}MediaStyle"""
 
         if (isMedia) {
@@ -124,12 +119,12 @@ class MusicNotificationListenerService : NotificationListenerService() {
     private fun sendForMusic(sbn: StatusBarNotification): Boolean {
         val notification = sbn.notification ?: return false
         val extras = notification.extras ?: return false
-        val title = extras.getString(Notification.EXTRA_TITLE)
+        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
 
         if (title.isNullOrEmpty()) return false
 
-        val text = extras.getString(Notification.EXTRA_TEXT)
-        val subText = extras.getString(Notification.EXTRA_SUB_TEXT)
+        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString();
+        val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString();
         val artist = when {
             !subText.isNullOrEmpty() -> subText
             !text.isNullOrEmpty() -> text
