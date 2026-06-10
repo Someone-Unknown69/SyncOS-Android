@@ -1,94 +1,115 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
+import 'package:mobile_controller/core/network/provider/connection_provider.dart';
 import '../../../theme/app_theme.dart';
 
-class StatusWaiting extends StatelessWidget {
-  final String message;
-
-  const StatusWaiting({super.key, required this.message});
+class StatusDisconnected extends ConsumerWidget {
+  const StatusDisconnected({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+Widget build(BuildContext context, WidgetRef ref) {
+  final theme = Theme.of(context);
+  final connectionManager = ref.watch(connectionManagerProvider);
+  
+  final status = ref.watch(connectionStatusProvider).maybeWhen(
+      data: (s) => s,
+      orElse: () => ConnectionStatus.disconnected,
+  );
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.padding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              message,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: AppTheme.spacing),
-            Row(
-              children: [
-                CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation(colorScheme.primary),
-                  strokeWidth: 3,
+  final bool isAttempting = status == ConnectionStatus.connecting;
+
+  return Card(
+    elevation: 0,
+    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppTheme.borderRadius * 1.5),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(AppTheme.padding * 2),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.laptop_rounded, size: 48, color: theme.colorScheme.error),
+          const SizedBox(height: AppTheme.spacing),
+          Text(
+            "Laptop Disconnected",
+            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: AppTheme.spacing / 2),
+          Text(
+            "Your connection to the machine has been lost.",
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: AppTheme.spacing * 2),
+          
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              FilledButton.icon(
+                onPressed: isAttempting ? null : () => connectionManager.start(),
+                icon: isAttempting 
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.sync_rounded),
+                label: Text(isAttempting ? "Attempting..." : "Attempt Reconnect"),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    'Please ensure your computer is awake and SyncOS server is running.',
-                    style: TextStyle(color: colorScheme.onSurfaceVariant),
+              ),
+              
+              if (isAttempting) ...[
+                const SizedBox(width: 12),
+                IconButton(
+                  onPressed: () {
+                    connectionManager.stopDiscovery();
+                  },
+                  icon: const Icon(Icons.close_rounded),
+                  style: IconButton.styleFrom(
+                    backgroundColor: theme.colorScheme.errorContainer,
+                    foregroundColor: theme.colorScheme.onErrorContainer,
                   ),
                 ),
               ],
+            ],
+          ),
+                    
+          const SizedBox(height: AppTheme.spacing * 2),
+          Divider(color: theme.colorScheme.outlineVariant),
+          const SizedBox(height: AppTheme.spacing),
+          
+          // Troubleshooting Section
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              "Troubleshooting Tips:",
+              style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: AppTheme.spacing),
+          _buildTip(theme, Icons.wifi, "Ensure both devices are on the same Wi-Fi network."),
+          _buildTip(theme, Icons.check_circle_outline, "Verify the laptop server is running."),
+          _buildTip(theme, Icons.airplanemode_off, "Check that Airplane mode is disabled."),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }
 
-class StatusDisconnected extends StatelessWidget {
-  final VoidCallback onReconnect;
-
-  const StatusDisconnected({super.key, required this.onReconnect});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.padding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              "Disconnected",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.errorColor),
+  Widget _buildTip(ThemeData theme, IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: theme.colorScheme.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
-            const SizedBox(height: AppTheme.spacing),
-            
-            // Button for connection
-            FilledButton.icon(
-              onPressed: onReconnect,
-              icon: const Icon(Icons.refresh),
-              label: const Text("Reconnect"),
-              style: ElevatedButton.styleFrom(
-                elevation: 2, 
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

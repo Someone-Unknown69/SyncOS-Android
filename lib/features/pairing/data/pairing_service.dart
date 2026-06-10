@@ -31,7 +31,8 @@ class PairingService {
         debugPrint('[PairingService] connection status received: $status');
 
         if (status == ConnectionStatus.connected) {
-          debugPrint('[PairingService] manual pairing succeeded, saving config');
+
+          debugPrint('[PairingService] manual pairing succeeded, saving ${config.toJson()}');
           await _storage.setConnectionConfig(config);
           return true;
         }
@@ -76,10 +77,8 @@ class PairingService {
 
   Future<bool> unpairWithServer() async {
     try {
+      await _connectionManager.unpair();
       debugPrint('[PairingService] Unpaired device successfully');
-      await _clearFailedPairingState();
-
-      _connectionManager.disconnect();
       return true;
     } catch (e) {
       debugPrint('[PairingService] Error in unpairing : $e');
@@ -88,6 +87,7 @@ class PairingService {
   }
 
   Future<void> _clearFailedPairingState() async {
+    debugPrint(StackTrace.current.toString());
     debugPrint('[PairingService] clearing stored pairing state after failure');
     await _storage.clearPairingToken();
     await _storage.clearConnectionConfig();

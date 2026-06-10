@@ -48,8 +48,20 @@ class StorageService {
   Future<void> clearConnectionConfig() =>
       _prefs.delete(StorageKeys.connectionConfig);
 
-  Future<void> setConnectionConfig(ConnectionConfig config) async {
-    final Map<String, dynamic> data = config.toJson();
+  Future<void> setConnectionConfig(ConnectionConfig newConfig) async {
+    final existingConfig = await getConnectionConfig(); 
+    
+    final mergedDeviceName = newConfig.deviceName ?? existingConfig?.deviceName;
+    final mergedDeviceOS = newConfig.deviceOS ?? existingConfig?.deviceOS;
+
+    final ConnectionConfig finalConfig = TcpConfig(
+      port: (newConfig as TcpConfig).port,
+      ip: newConfig.ip,
+      deviceName: mergedDeviceName,
+      deviceOS: mergedDeviceOS,
+    );
+
+    final Map<String, dynamic> data = finalConfig.toJson();
     final String jsonString = jsonEncode(data);
     await _prefs.write(StorageKeys.connectionConfig, jsonString);
   }

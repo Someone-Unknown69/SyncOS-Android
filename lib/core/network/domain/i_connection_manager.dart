@@ -15,7 +15,7 @@ abstract class IConnectionManager {
   // streams
   Stream<String> get rawMessageStream;
   Stream<ConnectionStatus> get connectionStatusStream;
-  Stream<(ConnectionConfig, String)> get nearbyDevicesStream;
+  Stream<ConnectionConfig> get nearbyDevicesStream;
 
   // status
   ConnectionConfig? get activeConfig;

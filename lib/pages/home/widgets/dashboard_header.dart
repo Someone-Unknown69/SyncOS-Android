@@ -1,9 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_controller/core/storage/provider/storage_service_provider.dart';
 import 'package:mobile_controller/features/battery/provider/remote_battery_state.dart';
-import 'package:mobile_controller/features/device_info/provider/remote_device_info_state.dart';
 import '../../../core/network/provider/connection_provider.dart';
 import '../../../theme/app_theme.dart';
+
+String _getGreeting() {
+  final hour = DateTime.now().hour;
+  
+  if (hour < 12) {
+    return "Good Morning!";
+  } else if (hour < 17) {
+    return "Good Afternoon!";
+  } else if (hour < 20){
+    return "Good Evening!";
+  } else {
+    return "Good Night!";
+  }
+}
 
 class Header extends ConsumerWidget {
   const Header({super.key});
@@ -12,8 +26,9 @@ class Header extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
-    final connectionManager = ref.read(connectionManagerProvider);
-    final currentGreeting = "I will code later";
+    final configasync = ref.watch(clientConfigProvider);
+    final connectionManager = ref.watch(connectionManagerProvider);
+    final currentGreeting = _getGreeting();
 
     return Container(
       margin: const EdgeInsets.only(
@@ -44,20 +59,23 @@ class Header extends ConsumerWidget {
             ]
           ),
 
-          Consumer(
-            builder: (context, ref, child) {
-              final deviceName = ref.watch(deviceInfoProvider.select((s) => s.name));
+          configasync.when(
+            data: (config) {
+              final name = config?.deviceName ?? 'Unknown Device';
               return Text(
-                deviceName,
+                name,
                 style: TextStyle(
                   fontSize: 28,
-                  fontWeight: FontWeight.bold, 
+                  fontWeight: FontWeight.bold,
                   color: theme.textTheme.bodyMedium?.color,
-                  height: 1.0
+                  height: 1.0,
                 ),
               );
-            }
+            },
+            loading: () => const Text("Loading..."),
+            error: (err, stack) => const Text("Error loading config"),
           ),
+
 
           const SizedBox(height:  AppTheme.spacing * 2),
 

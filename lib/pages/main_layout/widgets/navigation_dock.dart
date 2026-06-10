@@ -27,10 +27,6 @@ class NavigationDock extends StatelessWidget {
           label: 'Home',
         ),
         NavigationDestination(
-          icon: Icon(Icons.folder_rounded),
-          label: 'Files',
-        ),
-        NavigationDestination(
           icon: Icon(Icons.settings),
           label: 'Settings',
         ),

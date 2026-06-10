@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_controller/core/handler/provider/service_coordinator_provider.dart';
+import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
 import 'package:mobile_controller/core/network/provider/connection_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile_controller/core/storage/provider/storage_service_provider.dart';
@@ -75,6 +76,15 @@ void onStart(ServiceInstance service) async {
       'status': status.toString(),
       'config': connectionManager.activeConfig?.toJson(),
     });
+
+    // set's notification
+    if (service is AndroidServiceInstance) {
+      service.setForegroundNotificationInfo(
+        title: "",
+        content: (status == ConnectionStatus.connected) ? 
+          "Connected to remote device" : "Not connected to any device"
+      );
+    }
   });
 
   // Forward raw messages to UI
@@ -89,9 +99,12 @@ void onStart(ServiceInstance service) async {
 
   connectionManager.nearbyDevicesStream.listen((data) {
     service.invoke('device_discovery', {
-      'config': data.$1,
-      'deviceName': data.$2,
+      'config': data,
     });
+  });
+
+  service.on('start').listen((event) {
+    connectionManager.start();
   });
 
   // Listen to UI commands
@@ -105,6 +118,10 @@ void onStart(ServiceInstance service) async {
     if (event != null && event['config'] != null) {
       connectionManager.pair(ConnectionConfig.fromMap(Map<String, dynamic>.from(event['config'])));
     }
+  });
+
+  service.on('unpair').listen((event) async {
+    await connectionManager.unpair();
   });
 
   service.on('disconnect').listen((event) {

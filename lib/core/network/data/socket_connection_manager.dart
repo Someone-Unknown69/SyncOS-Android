@@ -2,9 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:math';
 import 'package:crypto/crypto.dart';
-import 'package:flutter/rendering.dart';
 import 'package:mobile_controller/core/storage/data/storage_service.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -22,7 +20,7 @@ class SocketConnectionManager implements IConnectionManager{
   final _statusController = BehaviorSubject<ConnectionStatus>.seeded(
     ConnectionStatus.disconnected,
   );
-  final _nearbyDevicesController = StreamController<(ConnectionConfig, String)>.broadcast();
+  final _nearbyDevicesController = StreamController<ConnectionConfig>.broadcast();
   final BytesBuilder _buffer = BytesBuilder();
   
   ConnectionConfig? _currentConfig;
@@ -35,12 +33,7 @@ class SocketConnectionManager implements IConnectionManager{
   // state management
   Timer? _heartbeatTimer;
   Timer? _pongTimeoutTimer;
-  bool _isReconnecting = false;
-  bool _shouldReconnect = true;
-  int _retryCount = 0;
   final int _discoveryPort = 6767;
-
-  final int _maxRetries = 4;
 
   RawDatagramSocket? _discoverySocket;
   RawDatagramSocket? _autoConnectSocket;
@@ -61,7 +54,7 @@ class SocketConnectionManager implements IConnectionManager{
   Stream<ConnectionStatus> get connectionStatusStream => _statusController.stream;
 
   @override
-  Stream<(ConnectionConfig, String)> get nearbyDevicesStream => _nearbyDevicesController.stream;
+  Stream<ConnectionConfig> get nearbyDevicesStream => _nearbyDevicesController.stream;
 
   // -----------------------------    Public interface      -------------------------------------
 
@@ -101,11 +94,12 @@ class SocketConnectionManager implements IConnectionManager{
             if (payload['service'] == 'SyncOS-server' && payload['status'] == 'pairing_mode') {
               final discoveredConfig = ConnectionConfig.fromMap(payload['config']);
 
+              debugPrint("[Pairing] New Server Discovered: ${payload['config']}");
+              _nearbyDevicesController.add(discoveredConfig);
+
               if (!_discoveredConfigsCache.contains(discoveredConfig)) {
                 _discoveredConfigsCache.add(discoveredConfig);
 
-                debugPrint("[Pairing] New Server Discovered: ${payload['config']}");
-                _nearbyDevicesController.add((discoveredConfig, payload['deviceName']));
               }
             }
           } catch (_) {}
@@ -116,11 +110,20 @@ class SocketConnectionManager implements IConnectionManager{
     }
   }
 
-
-
   @override
   void stopDiscovery() {
-    debugPrint('[Socket] Stopping device discovery');
+    if(status != ConnectionStatus.connected) {
+      // Any case where we are already not connected, add disconnected
+      _statusController.add(ConnectionStatus.disconnected);
+    }
+    debugPrint('[Socket] Stopping all discovery/auto-connect sockets');
+    
+    _discoverySocket?.close();
+    _discoverySocket = null;
+    
+    _autoConnectSocket?.close();
+    _autoConnectSocket = null;
+    
     _udpSocket?.close();
     _udpSocket = null;
   }
@@ -251,31 +254,26 @@ class SocketConnectionManager implements IConnectionManager{
 
   @override
   Future<void> unpair() async {
-    _sendRaw(jsonEncode({'op' : 'unpair'}), compress: false);
-    debugPrint('[Socket] Unpairing with server');
-    disconnect();
-    await _clearConnectionInfo();
+    try {
+      await _sendRaw(jsonEncode({'op': 'unpair'}), compress: false);
+    } catch (e) {
+      debugPrint('[Socket] Could not notify server of unpair, forcing local cleanup.');
+    }
+    await _performFullTeardown(clearStorage: true);
+    debugPrint('[Socket] Device unpaired and storage cleared.');
   }
 
   @override
-  void send(String op, String action, Map<String, dynamic> args) {
+  void send(String op, String action, Map<String, dynamic> args) async {
     if (_socket == null) return;
     final payload = jsonEncode({"op": op, "action": action, "args": args});
-    _sendRaw(payload);
+    await _sendRaw(payload);
   }
 
   @override
   void disconnect() {
-    _shouldReconnect = false;
-    _isReconnecting = false;
-    
-    if (_authCompleter != null && !_authCompleter!.isCompleted) {
-      _authCompleter!.completeError('Disconnected manually');
-    }
-    
-    _cleanup();
-    _statusController.add(ConnectionStatus.disconnected);
-    debugPrint('[Socket] Disconnected manually. Reconnect disabled.');
+    _performFullTeardown(clearStorage: false);
+    debugPrint('[Socket] Manual disconnect.');
   }
 
   /// ------------------      core implementation      ------------------------------
@@ -395,8 +393,6 @@ class SocketConnectionManager implements IConnectionManager{
 
   void _finalizeConnection({String? token}) {
     debugPrint("[Socket] Finalizing connection with token $token");
-    _retryCount = 0;
-    _isReconnecting = false;
 
     _statusController.add(ConnectionStatus.connected);
     _startHeartbeat();
@@ -404,40 +400,34 @@ class SocketConnectionManager implements IConnectionManager{
     if (token != null) _storage.setPairingToken(token);
   }
 
-  void _triggerReconnect() {
-    if (!_shouldReconnect) return;
-
-    if (status == ConnectionStatus.pairing) {
-      debugPrint("[Socket] Pairing failed or dropped. Aborting reconnection attempts.");
-      _statusController.add(ConnectionStatus.disconnected);
-      _cleanup();
-      return;
-    }
-
-    if (_retryCount >= _maxRetries) {
-      debugPrint("[Socket] Max TCP retries reached. Shifting to Auto-Discovery mode.");
-      _cleanup();
-      _retryCount = 0; 
-      autoConnectionStart(); // Start listening for the broadcast
-      return;
-    }
-
+  void _handleConnectionLoss() {
     _cleanup();
-    _isReconnecting = true;
-    _statusController.add(ConnectionStatus.reconnecting);
-
-    final delay = min(pow(2, _retryCount).toInt(), 30);
-    final config = _currentConfig;
-
-    if(config is TcpConfig) {
-      debugPrint("[Socket] Retrying TCP connection to ${config.ip} (Attempt ${_retryCount + 1}/$_maxRetries) in ${delay}s");
-      Future.delayed(Duration(seconds: delay), () {
-        if (_shouldReconnect && _isReconnecting) {
-          _retryCount++;
-          _attemptConnection(config.ip, config.port);
-        }
-      });
+    
+    if (status == ConnectionStatus.pairing) {
+      _statusController.add(ConnectionStatus.disconnected);
+    } else if(status != ConnectionStatus.disconnected) {
+      _statusController.add(ConnectionStatus.reconnecting);
+      autoConnectionStart();
     }
+  }
+
+  Future<void> _performFullTeardown({bool clearStorage = false}) async {
+    debugPrint('[Socket] Performing full teardown. Storage clear: $clearStorage');
+    _statusController.add(ConnectionStatus.disconnected);
+
+    if (clearStorage) {
+      await _clearConnectionInfo();
+    }
+
+    stopDiscovery();
+    _cleanup();
+  }
+
+  void _cleanup() {
+    _heartbeatTimer?.cancel();
+    _pongTimeoutTimer?.cancel();
+    _socket?.destroy();
+    _socket = null;
   }
 
   void _startHeartbeat() {
@@ -448,7 +438,7 @@ class SocketConnectionManager implements IConnectionManager{
     });
   }
 
-  void _sendRaw(String msg, {bool compress = true}) {
+  Future<void> _sendRaw(String msg, {bool compress = true}) async {
     try {
       final rawBytes = utf8.encode(msg);
       
@@ -465,13 +455,6 @@ class SocketConnectionManager implements IConnectionManager{
     }
   }
 
-  void _cleanup() {
-    _heartbeatTimer?.cancel();
-    _pongTimeoutTimer?.cancel();
-    _socket?.destroy();
-    _socket = null;
-  }
-  
   Future<void> _clearConnectionInfo() async {
     try {
       await _storage.clearConnectionConfig();
@@ -484,7 +467,7 @@ class SocketConnectionManager implements IConnectionManager{
     }
   }
 
-  void _handleError() => _triggerReconnect();
+  void _handleError() => _handleConnectionLoss();
 
   void _sendAuth(String token) {
   _sendRaw(jsonEncode({"op": 'auth', "args": {"token": token}}), compress: false);

@@ -13,7 +13,7 @@ class ProxyConnectionManager implements IConnectionManager {
   );
   final _rawMessageController = StreamController<String>.broadcast();
 
-  final _nearbyDevicesController = StreamController<(ConnectionConfig, String)>.broadcast();
+  final _nearbyDevicesController = StreamController<ConnectionConfig>.broadcast();
   
   ConnectionConfig? _activeConfig;
 
@@ -48,7 +48,7 @@ class ProxyConnectionManager implements IConnectionManager {
         
         final Map<String, dynamic> configMap = Map<String, dynamic>.from(event['config'] as Map);
         final ConnectionConfig config = ConnectionConfig.fromMap(configMap);
-        _nearbyDevicesController.add((config, event['deviceName'] as String));
+        _nearbyDevicesController.add(config);
       }
     });
     
@@ -69,7 +69,7 @@ class ProxyConnectionManager implements IConnectionManager {
   ConnectionStatus get status => _statusController.value;
 
   @override
-  Stream<(ConnectionConfig, String)> get nearbyDevicesStream => _nearbyDevicesController.stream;
+  Stream<ConnectionConfig> get nearbyDevicesStream => _nearbyDevicesController.stream;
 
   @override
   void start() async {

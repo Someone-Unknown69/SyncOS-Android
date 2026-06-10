@@ -22,7 +22,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
   final _portController = TextEditingController();
   
   // Local state to store discovered devices
-  final List<(ConnectionConfig, String)> _nearbyDevices = [];
+  final List<ConnectionConfig> _nearbyDevices = [];
 
   @override
   void dispose() {
@@ -85,11 +85,11 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
       debugPrint("Got device");
       final device = next.value;
       if (device != null) {
-        final (config, name) = device;
+        final config = device;
         if (config is TcpConfig) {
-          if (!_nearbyDevices.any((item) => (item.$1 as TcpConfig).ip == config.ip)) {
+          if (!_nearbyDevices.any((item) => (item as TcpConfig).ip == config.ip)) {
             setState(() {
-              _nearbyDevices.add((config, name));
+              _nearbyDevices.add(config);
             });
           }
         }
@@ -138,8 +138,10 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
             itemCount: _nearbyDevices.length,
             separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
-              final (config as TcpConfig, deviceName) = _nearbyDevices[index];
-              final subtext = 'IP : ${config.ip} : Port : ${config.port}';
+              final config = _nearbyDevices[index];
+              final tcpConfig = config as TcpConfig;
+              final subtext = 'IP : ${tcpConfig.ip} : Port : ${tcpConfig.port}';
+              final deviceName = tcpConfig.deviceName ?? "Unknown Device";
 
               return Card(
                 clipBehavior: Clip.antiAlias,

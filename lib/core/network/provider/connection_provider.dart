@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_controller/core/network/domain/connection_config.dart';
-import 'package:mobile_controller/core/storage/provider/storage_service_provider.dart';
 import '../domain/i_connection_manager.dart';
 import '../data/proxy_connection_manager.dart';
 
@@ -30,12 +29,7 @@ final connectionStatusProvider = StreamProvider<ConnectionStatus>((ref) {
   return manager.connectionStatusStream;
 });
 
-final clientConfigProvider = FutureProvider<ConnectionConfig?>((ref) {
-  final storage = ref.watch(storageServiceProvider);
-  return storage.getConnectionConfig();
-});
-
-final nearbyDevicesProvider = StreamProvider<(ConnectionConfig, String)>((ref) {
+final nearbyDevicesProvider = StreamProvider<ConnectionConfig>((ref) {
   final manager = ref.watch(connectionManagerProvider);
   return manager.nearbyDevicesStream;
 });

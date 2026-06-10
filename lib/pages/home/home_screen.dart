@@ -66,7 +66,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final connectionStatusAsync = ref.watch(_connectionStatusStreamProvider);
     final mediaInfo = ref.watch(musicProvider);
-    final connectionManager = ref.read(connectionManagerProvider);
 
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
@@ -82,10 +81,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               top: AppTheme.padding * 3,
             ),
             child: connectionStatusAsync.when(
-              loading: () => const StatusWaiting(message: 'Connecting to Server...'),
-              error: (error, stackTrace) => StatusDisconnected(
-                onReconnect: () => connectionManager.autoConnectionStart(),
-              ),
+              loading: () => StatusDisconnected(),
+              error: (error, stackTrace) => StatusDisconnected(),
               data: (connectionStatus) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -95,12 +92,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       DashboardGrid(items: _items),
                       const SizedBox(height: AppTheme.spacing),
                       if (mediaInfo.isValid) const MusicPlayerWidget(),
-                    ] else if (connectionStatus == ConnectionStatus.connecting) ...[
-                      const StatusWaiting(message: 'Connecting to Server...'),
-                    ] else if (connectionStatus == ConnectionStatus.reconnecting) ...[
-                      const StatusWaiting(message: 'Connection lost. Reconnecting...'),
                     ] else ...[
-                      StatusDisconnected(onReconnect: () => connectionManager.autoConnectionStart()),
+                      StatusDisconnected(),
                     ]
                   ],
                 );

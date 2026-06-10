@@ -45,7 +45,6 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
 
         if (!mounted) return;
 
-        debugPrint("success value of handlebarcode : $success");
         if (success) {
           Navigator.pop(context);
         } else {
