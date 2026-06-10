@@ -150,7 +150,6 @@ class MusicDetectionHandler(private val context: Context) {
     }
 
     internal fun registerPlaybackCallbacks() {
-        Log.d("MusicDetection", "registerPlaybackCallbacks called")
         val managerCopy = mediaSessionManager
         if (managerCopy == null) {
             Log.w("MusicDetection", "Cannot register callbacks: mediaSessionManager is null (initializeMusicDetection not yet called)")
@@ -160,7 +159,6 @@ class MusicDetectionHandler(private val context: Context) {
         
         try {
             val controllers = managerCopy.getActiveSessions(listenerComponent)
-            Log.d("MusicDetection", "registerPlaybackCallbacks: Found ${controllers.size} active sessions")
             for (controller in controllers) {
                 val callback = object : MediaController.Callback() {
                     override fun onPlaybackStateChanged(state: PlaybackState?) {

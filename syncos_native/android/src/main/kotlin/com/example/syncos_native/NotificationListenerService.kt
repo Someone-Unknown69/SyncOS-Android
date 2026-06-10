@@ -95,7 +95,6 @@ class MusicNotificationListenerService : NotificationListenerService() {
         val isNoClear = (sbn.notification.flags and Notification.FLAG_NO_CLEAR) != 0
 
         if (isOngoing || isNoClear) {
-            Log.d("Notification", "This is a sticky/persistent notification, ignoring.")
             return false
         }
 

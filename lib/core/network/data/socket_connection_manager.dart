@@ -63,8 +63,10 @@ class SocketConnectionManager implements IConnectionManager{
     final isPaired = await _storage.isPaired;
 
     if(isPaired) {
+      _statusController.add(ConnectionStatus.listening);
       autoConnectionStart();
     } else {
+      _statusController.add(ConnectionStatus.pairing);
       discoverDevices();
     }
   }
@@ -130,6 +132,9 @@ class SocketConnectionManager implements IConnectionManager{
 
   @override
   Future<void> autoConnectionStart() async {
+    // return when already listening
+    if(status != ConnectionStatus.listening) return;
+
     try {
       _autoConnectSocket?.close();
       _autoConnectSocket = await RawDatagramSocket.bind(
@@ -322,6 +327,7 @@ class SocketConnectionManager implements IConnectionManager{
       debugPrint("[Socket] Authentication successful, entering data mode");
     } catch(e) {
       debugPrint('[Socket] Connection failed: $e');
+      _statusController.add(ConnectionStatus.listening);
       autoConnectionStart();
     }
   }
@@ -411,11 +417,16 @@ class SocketConnectionManager implements IConnectionManager{
 
   void _handleConnectionLoss() {
     _cleanup();
+
+    // No need to start autoconnnect when already listening
+    if(status == ConnectionStatus.listening) return;
     
     if (status == ConnectionStatus.pairing) {
+      // If it was pairing we will set to disconnected and will start pairing once again
       _statusController.add(ConnectionStatus.disconnected);
+      discoverDevices();
     } else if(status != ConnectionStatus.disconnected) {
-      _statusController.add(ConnectionStatus.reconnecting);
+      _statusController.add(ConnectionStatus.listening);
       autoConnectionStart();
     }
   }
@@ -447,6 +458,7 @@ class SocketConnectionManager implements IConnectionManager{
     _heartbeatTimer?.cancel();
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       _sendRaw('PING');
+
       _pongTimeoutTimer = Timer(const Duration(seconds: 10), _handleError);
     });
   }
