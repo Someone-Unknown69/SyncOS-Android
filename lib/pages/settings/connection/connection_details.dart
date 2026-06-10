@@ -50,7 +50,7 @@ class _ConnectionDetailsState
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final config = connectionManager.activeConfig;
+    final config = connectionManager.serverConfig;
     final isConnected = status == ConnectionStatus.connected;
     final statusLabel = isConnected ? 'Connected' : 'Disconnected';
     final statusMessage = isConnected

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_controller/core/notification/provider/notification_provider.dart';
+import 'package:mobile_controller/features/clipboard/provider/local_clipboard_sender_provider.dart';
 import 'package:mobile_controller/features/file_transfer/provider/file_transfer_provider.dart';
 
 import '../../core/network/domain/i_connection_manager.dart';
@@ -51,7 +52,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     DashboardItem(
       label: 'Send Clipboard',
       icon: Icons.document_scanner,
-      onTap: () => (),
+      onTap: () {
+        final localClipboardSender = ref.read(localClipboardSenderProvider);
+        localClipboardSender.sendClipBoardContent();
+      }
     ),
     DashboardItem(
       label: 'Gamepad',

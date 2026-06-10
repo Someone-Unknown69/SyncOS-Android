@@ -17,7 +17,7 @@ Widget build(BuildContext context, WidgetRef ref) {
       orElse: () => ConnectionStatus.disconnected,
   );
 
-  final bool isAttempting = status == ConnectionStatus.connecting;
+  final bool isAttempting = status != ConnectionStatus.disconnected;
 
   return Card(
     elevation: 0,

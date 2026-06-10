@@ -18,7 +18,7 @@ abstract class IConnectionManager {
   Stream<ConnectionConfig> get nearbyDevicesStream;
 
   // status
-  ConnectionConfig? get activeConfig;
+  ConnectionConfig? get serverConfig;
   ConnectionStatus get status;
 
   void start();

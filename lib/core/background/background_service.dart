@@ -74,7 +74,7 @@ void onStart(ServiceInstance service) async {
   connectionManager.connectionStatusStream.listen((status) {
     service.invoke('connection_status', {
       'status': status.toString(),
-      'config': connectionManager.activeConfig?.toJson(),
+      'config': connectionManager.serverConfig?.toJson(),
     });
 
     // set's notification
@@ -141,7 +141,7 @@ void onStart(ServiceInstance service) async {
   service.on('request_initial_state').listen((event) {
     service.invoke('connection_status', {
       'status': connectionManager.status.toString(),
-      'config': connectionManager.activeConfig?.toJson(),
+      'config': connectionManager.serverConfig?.toJson(),
     });
     storage.isPaired.then((isPaired) {
       service.invoke('paired_status', {'isPaired': isPaired});

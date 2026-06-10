@@ -15,7 +15,7 @@ class ProxyConnectionManager implements IConnectionManager {
 
   final _nearbyDevicesController = StreamController<ConnectionConfig>.broadcast();
   
-  ConnectionConfig? _activeConfig;
+  ConnectionConfig? _serverConfig;
 
   ProxyConnectionManager() {
     _service.on('connection_status').listen((event) {
@@ -27,9 +27,9 @@ class ProxyConnectionManager implements IConnectionManager {
         );
 
         if (event['config'] != null) {
-          _activeConfig = ConnectionConfig.fromMap(Map<String, dynamic>.from(event['config']));
+          _serverConfig = ConnectionConfig.fromMap(Map<String, dynamic>.from(event['config']));
         } else {
-          _activeConfig = null;
+          _serverConfig = null;
         }
 
         _statusController.add(newStatus);
@@ -63,7 +63,7 @@ class ProxyConnectionManager implements IConnectionManager {
   Stream<String> get rawMessageStream => _rawMessageController.stream;
 
   @override
-  ConnectionConfig? get activeConfig => _activeConfig;
+  ConnectionConfig? get serverConfig => _serverConfig;
 
   @override
   ConnectionStatus get status => _statusController.value;

@@ -23,7 +23,7 @@ class SocketConnectionManager implements IConnectionManager{
   final _nearbyDevicesController = StreamController<ConnectionConfig>.broadcast();
   final BytesBuilder _buffer = BytesBuilder();
   
-  ConnectionConfig? _currentConfig;
+  ConnectionConfig? _serverConfig;
 
   Completer<void>? _authCompleter;
   
@@ -45,7 +45,7 @@ class SocketConnectionManager implements IConnectionManager{
   @override
   ConnectionStatus get status => _statusController.value;
   @override
-  ConnectionConfig? get activeConfig => _currentConfig;
+  ConnectionConfig? get serverConfig => _serverConfig;
 
   @override
   Stream<String> get rawMessageStream => _messageController.stream;
@@ -227,7 +227,7 @@ class SocketConnectionManager implements IConnectionManager{
     if (config is TcpConfig) {
       if (status == ConnectionStatus.connecting || status == ConnectionStatus.connected) return;
       
-      _currentConfig = config;
+      _serverConfig = config;
       _statusController.add(ConnectionStatus.connecting);
 
       debugPrint('[Socket] Initializing TCP connection to ${config.ip}');
@@ -241,6 +241,8 @@ class SocketConnectionManager implements IConnectionManager{
   Future<void> pair(
     ConnectionConfig config,
   ) async {
+    stopDiscovery();
+    
     if (config is TcpConfig) {
       _statusController.add(ConnectionStatus.pairing);
       
@@ -261,6 +263,9 @@ class SocketConnectionManager implements IConnectionManager{
     }
     await _performFullTeardown(clearStorage: true);
     debugPrint('[Socket] Device unpaired and storage cleared.');
+
+    discoverDevices();
+    debugPrint('[Socket] Device Discovery started');
   }
 
   @override
@@ -361,7 +366,10 @@ class SocketConnectionManager implements IConnectionManager{
     // Handle Handshakes
     if (op == 'auth' || op == 'pair') {
       if (action == 'accepted') {
-        _finalizeConnection(token: args['token']);
+        _finalizeConnection(
+          token: args['token'],
+          config: args['config'],
+        );
 
         if (_authCompleter != null && !_authCompleter!.isCompleted) {
           _authCompleter!.complete();
@@ -391,13 +399,14 @@ class SocketConnectionManager implements IConnectionManager{
     }
   }
 
-  void _finalizeConnection({String? token}) {
+  void _finalizeConnection({String? token, Map<String, dynamic>? config}) {
     debugPrint("[Socket] Finalizing connection with token $token");
 
     _statusController.add(ConnectionStatus.connected);
     _startHeartbeat();
 
     if (token != null) _storage.setPairingToken(token);
+    if (config != null) _storage.setConnectionConfig(ConnectionConfig.fromMap(config));
   }
 
   void _handleConnectionLoss() {
@@ -412,14 +421,18 @@ class SocketConnectionManager implements IConnectionManager{
   }
 
   Future<void> _performFullTeardown({bool clearStorage = false}) async {
+    // Storage clear false will be case for manual disconnect and 
+    // Storage clear true will be case of unpairing
+
     debugPrint('[Socket] Performing full teardown. Storage clear: $clearStorage');
     _statusController.add(ConnectionStatus.disconnected);
 
     if (clearStorage) {
       await _clearConnectionInfo();
-    }
-
+    } 
+    
     stopDiscovery();
+
     _cleanup();
   }
 
@@ -470,7 +483,7 @@ class SocketConnectionManager implements IConnectionManager{
   void _handleError() => _handleConnectionLoss();
 
   void _sendAuth(String token) {
-  _sendRaw(jsonEncode({"op": 'auth', "args": {"token": token}}), compress: false);
+    _sendRaw(jsonEncode({"op": 'auth', "args": {"token": token}}), compress: false);
   }
 
   void _pair() {
