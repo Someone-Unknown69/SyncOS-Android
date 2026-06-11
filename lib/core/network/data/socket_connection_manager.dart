@@ -4,7 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:mobile_controller/core/storage/data/storage_service.dart';
-import 'package:mobile_controller/core/utils/app_logging.dart';
+import 'package:mobile_controller/core/misc/app_logging.dart';
 import 'package:rxdart/rxdart.dart';
 
 import '../domain/i_connection_manager.dart';

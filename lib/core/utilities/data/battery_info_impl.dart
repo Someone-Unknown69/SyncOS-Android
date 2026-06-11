@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:mobile_controller/core/utils/app_logging.dart';
+import 'package:mobile_controller/core/misc/app_logging.dart';
 import '../domain/i_battery_info.dart';
 import 'package:battery_plus/battery_plus.dart';
 

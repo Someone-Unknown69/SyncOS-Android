@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:mobile_controller/core/handler/domain/i_command_dispatcher.dart';
 import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
-import 'package:mobile_controller/core/utils/app_logging.dart';
+import 'package:mobile_controller/core/misc/app_logging.dart';
 import 'package:mobile_controller/features/battery/domain/i_local_battery_sender.dart';
 import 'package:mobile_controller/features/music/domain/i_local_media_sender.dart';
 import 'package:mobile_controller/features/notification_sender/domain/i_local_notification_sender.dart';

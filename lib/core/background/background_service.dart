@@ -5,7 +5,7 @@ import 'package:mobile_controller/core/background/background_event_bus.dart';
 import 'package:mobile_controller/core/handler/provider/service_coordinator_provider.dart';
 import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
 import 'package:mobile_controller/core/network/provider/connection_provider.dart';
-import 'package:mobile_controller/core/utils/app_logging.dart';
+import 'package:mobile_controller/core/misc/app_logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile_controller/core/storage/provider/storage_service_provider.dart';
 import 'package:mobile_controller/core/network/data/socket_connection_manager.dart';

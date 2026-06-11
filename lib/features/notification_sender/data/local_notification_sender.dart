@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
-import 'package:mobile_controller/core/utils/app_logging.dart';
+import 'package:mobile_controller/core/misc/app_logging.dart';
 import 'package:mobile_controller/features/notification_sender/domain/model/app_notification.dart';
 import '../domain/i_local_notification_sender.dart';
 

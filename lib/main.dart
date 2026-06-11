@@ -9,7 +9,7 @@ import 'package:mobile_controller/core/network/data/proxy_connection_manager.dar
 import 'package:mobile_controller/core/network/provider/connection_provider.dart';
 import 'package:mobile_controller/core/notification/data/notification_service_impl.dart';
 import 'package:mobile_controller/core/notification/provider/notification_provider.dart';
-import 'package:mobile_controller/core/utils/app_logging.dart';
+import 'package:mobile_controller/core/misc/app_logging.dart';
 import 'package:mobile_controller/features/file_transfer/provider/file_transfer_provider.dart';
 import 'package:mobile_controller/features/music/provider/local_media_sender_provider.dart';
 import 'package:mobile_controller/theme/provider/theme_provider.dart';

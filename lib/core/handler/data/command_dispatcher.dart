@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:mobile_controller/core/background/background_event_bus.dart';
 import 'package:mobile_controller/core/handler/domain/i_command_dispatcher.dart';
-import 'package:mobile_controller/core/utils/app_logging.dart';
+import 'package:mobile_controller/core/misc/app_logging.dart';
 import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
 
 class CommandDispatcher implements ICommandDispatcher {

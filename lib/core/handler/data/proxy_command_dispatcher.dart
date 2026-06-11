@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_controller/core/handler/domain/i_command_dispatcher.dart';
-import 'package:mobile_controller/core/utils/app_logging.dart';
+import 'package:mobile_controller/core/misc/app_logging.dart';
 import 'package:mobile_controller/features/file_transfer/data/file_transfer_service.dart';
 import 'package:mobile_controller/features/music/domain/i_local_media_sender.dart';
 import 'package:mobile_controller/features/music/provider/remote_media_state.dart';
