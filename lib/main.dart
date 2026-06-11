@@ -2,9 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_controller/core/background/background_service.dart';
+import 'package:mobile_controller/core/handler/data/proxy_command_dispatcher.dart';
 import 'package:mobile_controller/core/handler/provider/command_dispatcher_provider.dart';
+import 'package:mobile_controller/core/handler/provider/service_coordinator_provider.dart';
+import 'package:mobile_controller/core/network/data/proxy_connection_manager.dart';
+import 'package:mobile_controller/core/network/provider/connection_provider.dart';
 import 'package:mobile_controller/core/notification/data/notification_service_impl.dart';
 import 'package:mobile_controller/core/notification/provider/notification_provider.dart';
+import 'package:mobile_controller/core/utils/app_logging.dart';
+import 'package:mobile_controller/features/file_transfer/provider/file_transfer_provider.dart';
+import 'package:mobile_controller/features/music/provider/local_media_sender_provider.dart';
 import 'package:mobile_controller/theme/provider/theme_provider.dart';
 
 import 'core/config/app_router.dart';
@@ -37,12 +44,24 @@ void main() async {
   await notificationService.init();
 
   final prefs = await SharedPreferences.getInstance();
+  engineNamespace = 'MAIN';
 
   runApp(
     ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
         notificationServiceProvider.overrideWithValue(notificationService),
+        commandDispatcherProvider.overrideWith((ref) {
+          return ProxyCommandDispatcher(
+            ref,
+            ref.watch(mediaServiceProvider),
+            ref.watch(fileTransferServiceProvider),
+          );
+        }),
+        connectionManagerProvider.overrideWith((ref) => ProxyConnectionManager()),
+        serviceCoordinatorProvider.overrideWith((ref) {
+          throw UnimplementedError('The ServiceCoordinator belongs strictly in the background isolate');
+        }),
       ],
       child: const RemoteControllerApp(),
     ),
@@ -61,15 +80,14 @@ class _RemoteControllerAppState extends ConsumerState<RemoteControllerApp> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(commandDispatcherProvider).start();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {});
   }
 
   @override
   Widget build(BuildContext context) {
     final themeSettings = ref.watch(themeProvider);
     final paired = ref.watch(pairedProvider);
+    ref.watch(commandDispatcherProvider);
 
     Widget homeWidget = paired.when(
       data: (hasPaired) => hasPaired ? const MainScreen() : const SetupScreen(),

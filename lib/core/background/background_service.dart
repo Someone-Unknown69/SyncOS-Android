@@ -1,15 +1,17 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_controller/core/background/background_event_bus.dart';
 import 'package:mobile_controller/core/handler/provider/service_coordinator_provider.dart';
 import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
 import 'package:mobile_controller/core/network/provider/connection_provider.dart';
+import 'package:mobile_controller/core/utils/app_logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile_controller/core/storage/provider/storage_service_provider.dart';
 import 'package:mobile_controller/core/network/data/socket_connection_manager.dart';
 import 'package:mobile_controller/core/network/domain/connection_config.dart';
 import 'dart:async';
+
 Future<void> initalizeBackgroundServices() async {
   final service = FlutterBackgroundService();
 
@@ -26,14 +28,14 @@ Future<void> initalizeBackgroundServices() async {
     iosConfiguration: IosConfiguration(
       autoStart: true,
       onForeground: onStart,
-      // onBackground: onIosBackground
     ),
   );
 }
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
-  DartPluginRegistrant.ensureInitialized();
+  BackgroundEventBus.setService(service);
+  engineNamespace = 'BACKGROUND';
   WidgetsFlutterBinding.ensureInitialized();
 
   final prefs = await SharedPreferences.getInstance();
@@ -52,23 +54,23 @@ void onStart(ServiceInstance service) async {
       service.stopSelf();
     });
   }
-  
-  final storageContainer = ProviderContainer(
-    overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-    ],
-  );
-  final storage = storageContainer.read(storageServiceProvider);
-  final realConnectionManager = SocketConnectionManager(storage);
 
+  // Provider container for background isolate
   final container = ProviderContainer(
     overrides: [
       sharedPreferencesProvider.overrideWithValue(prefs),
-      connectionManagerProvider.overrideWithValue(realConnectionManager),
+      connectionManagerProvider.overrideWith((ref) {
+        final storage = ref.watch(storageServiceProvider);
+        return SocketConnectionManager(storage);
+      }),
+      
     ],
   );
 
   final connectionManager = container.read(connectionManagerProvider);
+  final storage = container.read(storageServiceProvider);
+
+  final coordinator = container.read(serviceCoordinatorProvider);
   
   // Forward status changes to UI
   connectionManager.connectionStatusStream.listen((status) {
@@ -148,11 +150,13 @@ void onStart(ServiceInstance service) async {
     });
   });
 
-  container.read(serviceCoordinatorProvider);
+  service.on('stopService').listen((event) {
+    coordinator.dispose();
+    container.dispose();
+  });
 
-  // DEBUG: Print a message every 5 seconds to prove the isolate is alive
   Timer.periodic(const Duration(seconds: 30), (timer) {
-    debugPrint('[BACKGROUND ISOLATE] Service is currently running at Time: ${DateTime.now()}');
+    logDebug('Daemon', 'Running');
   });
 }
 

@@ -7,6 +7,6 @@ final notificationListeningProvider = Provider<INotificationListener>((ref) {
   final connection = ref.watch(connectionManagerProvider);
 
   final service = NotificationReceiverImpl(connectionManager: connection);
-  ref.onDispose(() => service.dispose());
+  ref.onDispose(() => service.stop());
   return service;
 });

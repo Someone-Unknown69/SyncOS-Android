@@ -1,5 +1,4 @@
 abstract class INotificationListener {
   Future<void> start();
-  void stop();
-  void dispose();
+  Future<void> stop();
 }

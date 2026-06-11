@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_controller/core/network/data/socket_connection_manager.dart';
 import 'package:mobile_controller/core/network/domain/connection_config.dart';
+import 'package:mobile_controller/core/storage/provider/storage_service_provider.dart';
 import '../domain/i_connection_manager.dart';
-import '../data/proxy_connection_manager.dart';
 
 /// The global access point for connection system.
 /// 
@@ -16,8 +17,9 @@ import '../data/proxy_connection_manager.dart';
 ///    final service = service(ref.read(connectionManagerProvider));
 ///
 final connectionManagerProvider = Provider<IConnectionManager>((ref) {
+  final storage = ref.watch(storageServiceProvider);
   // In case of changing conenection manager in future, add new connection manger here
-  final manager = ProxyConnectionManager();
+  final manager = SocketConnectionManager(storage);
   
   ref.onDispose(() => manager.disconnect());
   

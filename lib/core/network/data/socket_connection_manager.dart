@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:mobile_controller/core/storage/data/storage_service.dart';
+import 'package:mobile_controller/core/utils/app_logging.dart';
 import 'package:rxdart/rxdart.dart';
 
 import '../domain/i_connection_manager.dart';
@@ -18,7 +19,7 @@ class SocketConnectionManager implements IConnectionManager{
   Socket? _socket;
   final _messageController = StreamController<String>.broadcast();
   final _statusController = BehaviorSubject<ConnectionStatus>.seeded(
-    ConnectionStatus.disconnected,
+    ConnectionStatus.listening,
   );
   final _nearbyDevicesController = StreamController<ConnectionConfig>.broadcast();
   final BytesBuilder _buffer = BytesBuilder();
@@ -60,6 +61,7 @@ class SocketConnectionManager implements IConnectionManager{
 
   @override
   void start() async {
+    logDebug('Socket', 'Initialized');
     final isPaired = await _storage.isPaired;
 
     if(isPaired) {
