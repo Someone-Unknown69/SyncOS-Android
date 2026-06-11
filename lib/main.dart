@@ -11,7 +11,6 @@ import 'package:mobile_controller/core/notification/data/notification_service_im
 import 'package:mobile_controller/core/notification/provider/notification_provider.dart';
 import 'package:mobile_controller/core/misc/app_logging.dart';
 import 'package:mobile_controller/features/file_transfer/provider/file_transfer_provider.dart';
-import 'package:mobile_controller/features/music/provider/local_media_sender_provider.dart';
 import 'package:mobile_controller/theme/provider/theme_provider.dart';
 
 import 'core/config/app_router.dart';
@@ -54,7 +53,6 @@ void main() async {
         commandDispatcherProvider.overrideWith((ref) {
           return ProxyCommandDispatcher(
             ref,
-            ref.watch(mediaServiceProvider),
             ref.watch(fileTransferServiceProvider),
           );
         }),

@@ -139,6 +139,9 @@ void onStart(ServiceInstance service) async {
       );
     }
   });
+  service.on('stopDiscovery').listen((event) {
+    connectionManager.stopDiscovery();
+  });
   
   service.on('request_initial_state').listen((event) {
     service.invoke('connection_status', {
@@ -154,6 +157,7 @@ void onStart(ServiceInstance service) async {
     coordinator.dispose();
     container.dispose();
   });
+
 
   Timer.periodic(const Duration(seconds: 30), (timer) {
     logDebug('Daemon', 'Running');

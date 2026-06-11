@@ -68,6 +68,7 @@ Widget build(BuildContext context, WidgetRef ref) {
                   style: IconButton.styleFrom(
                     backgroundColor: theme.colorScheme.errorContainer,
                     foregroundColor: theme.colorScheme.onErrorContainer,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                   ),
                 ),
               ],
@@ -87,8 +88,8 @@ Widget build(BuildContext context, WidgetRef ref) {
             ),
           ),
           const SizedBox(height: AppTheme.spacing),
-          _buildTip(theme, Icons.wifi, "Ensure both devices are on the same Wi-Fi network."),
-          _buildTip(theme, Icons.check_circle_outline, "Verify the laptop server is running."),
+          _buildTip(theme, Icons.wifi, "Ensure that both devices are on the same Wi-Fi network."),
+          _buildTip(theme, Icons.check_circle_outline, "Verify the remote server is running."),
           _buildTip(theme, Icons.airplanemode_off, "Check that Airplane mode is disabled."),
         ],
       ),

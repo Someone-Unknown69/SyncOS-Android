@@ -4,15 +4,25 @@ import 'package:mobile_controller/core/background/background_event_bus.dart';
 import 'package:mobile_controller/core/handler/domain/i_command_dispatcher.dart';
 import 'package:mobile_controller/core/misc/app_logging.dart';
 import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
+import 'package:mobile_controller/core/utilities/domain/i_ringtone_service.dart';
+import 'package:mobile_controller/features/music/domain/i_local_media_sender.dart';
 
 class CommandDispatcher implements ICommandDispatcher {
   final IConnectionManager _connectionManager;
 
+  // Services that strictly run in background and have no intention to use UI
+  final IRingtoneService _ringtoneService;
+  final IMediaService _mediaService;            // Only for control commands
+
   StreamSubscription<String>? _rawMessageSubscription;
   bool _isStarted = false;
 
-  CommandDispatcher(this._connectionManager) {
-    logDebug('Command Dispatcher', 'Instance created');
+  CommandDispatcher(
+    this._connectionManager,
+    this._ringtoneService,
+    this._mediaService,
+  ) {
+    logDebug('Command Dispatcher', 'Initialized');
   }
 
   @override
@@ -24,11 +34,12 @@ class CommandDispatcher implements ICommandDispatcher {
     _rawMessageSubscription = _connectionManager.rawMessageStream.listen((rawMessage) {
       try {
         final Map<String, dynamic> data = jsonDecode(rawMessage);
+        logDebug('Command Dispatcher', 'Recieved : $data');
         
+        // Entry point for background running services
         _handleOperation(data);
 
-        logDebug('Command Dispatcher', 'Recieved : $data');
-
+        // Entry point for foreground UI updates
         BackgroundEventBus.emit('update_ui_event', {
           'operation': data['op'],
           'action': data['action'],
@@ -41,13 +52,22 @@ class CommandDispatcher implements ICommandDispatcher {
   }
 
   void _handleOperation(Map<String, dynamic> data) {
-    // NO BACKGROUND SERVICES TO TAKE CARE OF NOW
-  }
+    final operation = data['op'];
+    final action = data['action'];
+    final args = data['args'] as Map<String, dynamic>;
 
-  @override
-  void dispatchCommand({required String operation, required String action, required Map<String, dynamic> args}) {
-    // This method is intended for sending commands TO the network
-    _connectionManager.send(operation, action, args);
+    switch (operation) {
+      case 'ring_device':
+        _ringtoneService.ringDevice(data: args);
+        break;
+      case 'music':
+        if (action == 'control') {
+          _mediaService.sendControlCommand(args);
+        }
+        break;
+      default:
+        logDebug('Command Dispatcher', 'Not a background service command');
+    }
   }
 
   @override
