@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_controller/pages/gamepad/gamepad_page.dart';
+import 'package:mobile_controller/pages/run_command/command_page.dart';
 import 'package:mobile_controller/pages/settings/connection/connection_details.dart';
 import 'package:mobile_controller/pages/setup_screen/setup_screen.dart';
 import 'app_routes.dart';
@@ -46,6 +47,8 @@ class AppRouter {
         return _createSlideRoute(const PairingScreen());
       case AppRoutes.setupScreen:
         return _createSlideRoute(const SetupScreen());
+      case AppRoutes.runCommands:
+        return _createSlideRoute(const CommandScreen());
 
       case AppRoutes.themeMode:
         return _createSlideRoute(const ThemeModePage());

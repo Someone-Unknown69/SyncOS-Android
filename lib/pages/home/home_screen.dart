@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_controller/core/notification/provider/notification_provider.dart';
 import 'package:mobile_controller/features/clipboard/provider/local_clipboard_sender_provider.dart';
 import 'package:mobile_controller/features/file_transfer/provider/file_transfer_provider.dart';
 
@@ -44,9 +43,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     DashboardItem(
       label: 'Run Command',
       icon: Icons.terminal,
-      onTap: () async {
-        final notificationService = ref.read(notificationServiceProvider);
-        notificationService.showTestNotification();
+      onTap: () => {
+        AppRouter.pushRoute(context, AppRoutes.runCommands),
       },
     ),
     DashboardItem(

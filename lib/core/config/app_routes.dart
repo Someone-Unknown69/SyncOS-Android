@@ -11,6 +11,7 @@ class AppRoutes {
 
   // home screen routes
   static const String gamepad = '$home/gamepad';
+  static const String runCommands = '$home/runCommands';
 
   // gamepad page routes
   static const launchGamepad = '$gamepad/launchGamepad';
