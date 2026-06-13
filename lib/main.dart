@@ -20,6 +20,8 @@ import 'pages/setup_screen/setup_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/storage/provider/storage_service_provider.dart';
 
+final GlobalKey<ScaffoldMessengerState> snackbarKey = GlobalKey<ScaffoldMessengerState>();
+
 // Requests battery optimization exemption once. Without this, aggressive OEM
 // devices (Realme/OPPO/Xiaomi) will kill the background service when the screen
 // turns off, even if a foreground service notification is shown.
@@ -30,14 +32,24 @@ Future<void> _requestBatteryOptimizationExemption() async {
   } catch (_) {
   }
 }
+Future<void> _ensurePermissions() async {
+  const channel = MethodChannel('com.example/permissions');
+  final bool hasAccess = await channel.invokeMethod('checkNotificationListener');
+  
+  if (!hasAccess) {
+    await channel.invokeMethod('requestNotificationListener');
+    await Future.delayed(const Duration(seconds: 2));
+  }
+}
 
-final GlobalKey<ScaffoldMessengerState> snackbarKey = GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await initalizeBackgroundServices();
+  await _ensurePermissions();
   await _requestBatteryOptimizationExemption();
+
+  await initalizeBackgroundServices();
 
   final notificationService = NotificationServiceImpl();
   await notificationService.init();

@@ -1,7 +1,13 @@
 package com.example.syncos_native
 
 import android.content.Context
+import android.content.Intent              // Required for Intent
+import android.provider.Settings          // Required for Settings
+import androidx.core.app.NotificationManagerCompat // Required for Notification access check
 import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.plugin.common.MethodChannel // Required for MethodChannel
+import io.flutter.plugin.common.MethodCall    // Required for call
+import io.flutter.plugin.common.MethodChannel.Result // Required for result
 
 class SyncosNativePlugin : FlutterPlugin {
     companion object {
@@ -17,6 +23,24 @@ class SyncosNativePlugin : FlutterPlugin {
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         val context = binding.applicationContext
         val engine = binding.flutterEngine
+
+        val permChannel = MethodChannel(engine.dartExecutor.binaryMessenger, "com.example/permissions")
+        
+        permChannel.setMethodCallHandler { call: MethodCall, result: Result ->
+            when (call.method) {
+                "requestNotificationListener" -> {
+                    val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(intent)
+                    result.success(true)
+                }
+                "checkNotificationListener" -> {
+                    val enabledPackages = NotificationManagerCompat.getEnabledListenerPackages(context)
+                    result.success(enabledPackages.contains(context.packageName))
+                }
+                else -> result.notImplemented()
+            }
+        }
 
         if (musicDetectionHandler == null) {
             musicDetectionHandler = MusicDetectionHandler(context)
