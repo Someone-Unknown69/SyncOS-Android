@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_controller/core/utilities/data/ringtone_service_impl.dart';
+import 'package:mobile_controller/core/utilities/domain/i_ringtone_service.dart';
 
 import '../domain/i_battery_info.dart';
 import '../data/battery_info_impl.dart';
@@ -14,4 +16,8 @@ final batteryInfoProvider = Provider<IBatteryInfo>((ref) {
 
 final deviceInfoProvider = Provider<IDeviceInfo>((ref) {
   return DeviceInfoImpl();
+});
+
+final ringtoneServiceProvider = Provider<IRingtoneService>((ref) {
+  return AndroidRingtoneService();
 });

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_controller/core/notification/provider/notification_provider.dart';
+import 'package:mobile_controller/features/clipboard/provider/local_clipboard_sender_provider.dart';
 import 'package:mobile_controller/features/file_transfer/provider/file_transfer_provider.dart';
 
 import '../../core/network/domain/i_connection_manager.dart';
@@ -14,12 +14,12 @@ import 'widgets/dashboard_grid.dart';
 import 'widgets/dashboard_header.dart';
 import 'package:mobile_controller/core/config/app_routes.dart';
 import 'package:mobile_controller/core/config/app_router.dart';
-import '../../core/network/provider/auto_connect_provider.dart';
+
 final _connectionStatusStreamProvider =
-  StreamProvider<ConnectionStatus>((ref) {
-    final connectionManager = ref.watch(connectionManagerProvider);
-    return connectionManager.connectionStatusStream;
-  });
+    StreamProvider<ConnectionStatus>((ref) {
+      final connectionManager = ref.watch(connectionManagerProvider);
+      return connectionManager.connectionStatusStream;
+    });
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -43,15 +43,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     DashboardItem(
       label: 'Run Command',
       icon: Icons.terminal,
-      onTap: () async {
-        final notificationService = ref.read(notificationServiceProvider);
-        notificationService.showTestNotification();
+      onTap: () => {
+        AppRouter.pushRoute(context, AppRoutes.runCommands),
       },
     ),
     DashboardItem(
       label: 'Send Clipboard',
       icon: Icons.document_scanner,
-      onTap: () => (),
+      onTap: () {
+        final localClipboardSender = ref.read(localClipboardSenderProvider);
+        localClipboardSender.sendClipBoardContent();
+      }
     ),
     DashboardItem(
       label: 'Gamepad',
@@ -81,8 +83,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               top: AppTheme.padding * 3,
             ),
             child: connectionStatusAsync.when(
-              loading: () => const StatusWaiting(message: 'Connecting to Server...'),
-              error: (error, stackTrace) => StatusDisconnected(onReconnect: () => ref.read(autoConnectProvider).manualReconnect()),
+              loading: () => StatusDisconnected(),
+              error: (error, stackTrace) => StatusDisconnected(),
               data: (connectionStatus) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -92,12 +94,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       DashboardGrid(items: _items),
                       const SizedBox(height: AppTheme.spacing),
                       if (mediaInfo.isValid) const MusicPlayerWidget(),
-                    ] else if (connectionStatus == ConnectionStatus.connecting) ...[
-                      const StatusWaiting(message: 'Connecting to Server...'),
-                    ] else if (connectionStatus == ConnectionStatus.reconnecting) ...[
-                      const StatusWaiting(message: 'Connection lost. Reconnecting...'),
                     ] else ...[
-                      StatusDisconnected(onReconnect: () => ref.read(autoConnectProvider).manualReconnect()),
+                      StatusDisconnected(),
                     ]
                   ],
                 );

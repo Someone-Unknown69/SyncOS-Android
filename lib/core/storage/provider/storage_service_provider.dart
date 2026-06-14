@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_controller/core/network/domain/connection_config.dart';
 import 'package:mobile_controller/core/storage/data/prefs_storage.dart';
 import 'package:mobile_controller/core/storage/data/secure_storage.dart';
 import 'package:mobile_controller/core/storage/data/storage_service.dart';
@@ -40,4 +41,10 @@ final pairedProvider = StreamProvider<bool>((ref) async* {
   });
 
   yield* controller.stream;
+});
+
+// for client config info
+final clientConfigProvider = FutureProvider<ConnectionConfig?>((ref) async {
+  final storage = ref.watch(storageServiceProvider);
+  return await storage.getConnectionConfig();
 });

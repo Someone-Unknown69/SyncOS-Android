@@ -1,4 +1,5 @@
 // lib/features/pairing/provider/pairing_notifier.dart
+import 'package:mobile_controller/core/network/domain/connection_config.dart';
 import 'package:mobile_controller/core/storage/provider/storage_service_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../data/pairing_service.dart';
@@ -11,13 +12,13 @@ class PairingNotifier extends _$PairingNotifier {
   @override
   bool build() => false; // false = idle, true = pairing in progress
 
-  Future<bool> pair(Map<String, dynamic> data) async {
+  Future<bool> pair(ConnectionConfig config, String? token) async {
     state = true; // Start loading
     try {
       final manager = ref.read(connectionManagerProvider);
       final storage = ref.read(storageServiceProvider);
       final service = PairingService(manager, storage);
-      final result = await service.pairWithServer(data);
+      final result = await service.pairWithServer(config, token);
       return result;
     } catch (e) {
       return false;

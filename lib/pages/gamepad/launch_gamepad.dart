@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../features/gamepad/data/gamepad_event_sender.dart';
+import '../../features/gamepad/gamepad_event_sender.dart';
 import '../../core/network/provider/connection_provider.dart';
 import '../../theme/app_theme.dart';
 

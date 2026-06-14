@@ -1,16 +1,24 @@
 import 'dart:async';
-
+import 'package:mobile_controller/core/misc/app_logging.dart';
 import '../domain/i_battery_info.dart';
 import 'package:battery_plus/battery_plus.dart';
 
 class BatteryInfoImpl implements IBatteryInfo {
-  final Battery _battery = Battery();
+  Battery? _battery;
+
+  Battery get battery {
+    if (_battery == null) {
+      logDebug('Battery Listener', 'Initalizing');
+      _battery = Battery();
+    }
+    return _battery!;
+  }
 
   @override
-  Future<int> getLevel() => _battery.batteryLevel;
+  Future<int> getLevel() => battery.batteryLevel;
 
   @override
-  Future<bool> isCharging() async => (await _battery.batteryState) == BatteryState.charging;
+  Future<bool> isCharging() async => (await battery.batteryState) == BatteryState.charging;
 
   @override
   AppBatteryState currentState() => _lastState ?? AppBatteryState.unknown;
@@ -50,8 +58,8 @@ class BatteryInfoImpl implements IBatteryInfo {
     // emit initial reading
     () async {
       try {
-        final native = await _battery.batteryState;
-        final level = await _battery.batteryLevel;
+        final native = await battery.batteryState;
+        final level = await battery.batteryLevel;
         final state = _mapState(native);
         _lastState = state;
         _lastLevel = level;
@@ -60,11 +68,11 @@ class BatteryInfoImpl implements IBatteryInfo {
     }();
 
     // Listen to native state changes and emit (state, level)
-    _nativeSub = _battery.onBatteryStateChanged.listen((native) async {
+    _nativeSub = battery.onBatteryStateChanged.listen((native) async {
       try {
         final state = _mapState(native);
         _lastState = state;
-        final level = await _battery.batteryLevel;
+        final level = await battery.batteryLevel;
         _lastLevel = level;
         _controller.add((state, level));
       } catch (_) {}
@@ -73,10 +81,10 @@ class BatteryInfoImpl implements IBatteryInfo {
     // Poll for level changes (battery_plus doesn't provide level stream)
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
       try {
-        final level = await _battery.batteryLevel;
+        final level = await battery.batteryLevel;
         if (_lastLevel != level) {
           _lastLevel = level;
-          final state = _lastState ?? _mapState(await _battery.batteryState);
+          final state = _lastState ?? _mapState(await battery.batteryState);
           _lastState = state;
           _controller.add((state, level));
         }

@@ -5,26 +5,36 @@ import '../domain/connection_config.dart';
 enum ConnectionStatus {
   connected,       // Fully authenticated, connection is active and authorized
   disconnected,    // connection is inactive
-  connecting,      // Establishing connection
+  connecting,      // Establishing connection with paired device
   reconnecting,    
   unauthorized,    // used for Auth/ token issues
   pairing,         // for initial connection
+  listening        // Listening for paired device
 }
 
 abstract class IConnectionManager {
-
   // streams
   Stream<String> get rawMessageStream;
   Stream<ConnectionStatus> get connectionStatusStream;
+  Stream<ConnectionConfig> get nearbyDevicesStream;
 
   // status
-  ConnectionConfig? get activeConfig;
+  ConnectionConfig? get serverConfig;
   ConnectionStatus get status;
 
+  void start();
+
+  // Discovers nearby devices
+  void discoverDevices();
+  void stopDiscovery();
+  
   // connection and authorization
+  Future<void> autoConnectionStart();
   Future<void> connect(ConnectionConfig config);
-  Future<void> pair(ConnectionConfig config);
   void disconnect();
+
+  Future<void> pair(ConnectionConfig config);
+  Future<void> unpair();
 
   // The implementation handles the serialization.
   void send(String op, String action, Map<String, dynamic> args);

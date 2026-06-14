@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_controller/core/config/app_router.dart';
 import 'package:mobile_controller/core/config/app_routes.dart';
+import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
+import 'package:mobile_controller/core/network/provider/connection_provider.dart';
 import 'package:mobile_controller/core/storage/provider/storage_service_provider.dart';
 import 'package:mobile_controller/features/pairing/provider/pairing_notifier.dart';
 import 'package:mobile_controller/pages/components/base_page.dart';
@@ -11,7 +13,7 @@ import '../components/settings_tile.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
-
+  
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return BasePage(
@@ -34,8 +36,8 @@ class SettingsScreen extends ConsumerWidget {
           subtitle:'Scan or enter IP and port',
           onTap: () async {
             final storage = ref.read(storageServiceProvider);
-
             final isPaired = await storage.isPaired;
+            final asyncStatus = ref.watch(connectionStatusProvider);
 
             if (!context.mounted) return;
 
@@ -43,19 +45,22 @@ class SettingsScreen extends ConsumerWidget {
               await showAppPopupDialog(
                 context,
                 title: 'Unpair Device',
-                subtitle: 'This will disconnect from the server and remove saved pairing data.',
+                subtitle: 
+                  (asyncStatus.value == ConnectionStatus.connected) ? 
+                  'This will disconnect from the server and remove saved pairing data.' :
+                  "Device is disconnected from server, Note that If you are unpairing now then you have to unpair server explicitly" ,
+                
                 primaryButtonLabel: 'Unpair',
                 secondaryButtonLabel: 'Cancel',
                 onPrimaryPressed: () async {
                   final success = await ref.read(pairingProvider.notifier).unpairWithServer();
-                  debugPrint("[Pairing] Initiating unpair");
-
                   if (!context.mounted) return;
-
                   if (success) {
-                    Navigator.of(context).pop(true);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Device unpaired successfully.')),
+                      const SnackBar(
+                        content: Text('Device unpaired successfully.'),
+                        behavior: SnackBarBehavior.fixed,
+                      ),
                     );
                   }
                 },
@@ -87,7 +92,9 @@ class SettingsScreen extends ConsumerWidget {
           icon: Icons.info_outline_rounded,
           title: 'SyncOS',
           subtitle: 'Version 1.0.0',
-          onTap: null,
+          onTap: () {
+            AppRouter.pushRoute(context, AppRoutes.aboutScreen);
+          }
         ),
       ]
     );

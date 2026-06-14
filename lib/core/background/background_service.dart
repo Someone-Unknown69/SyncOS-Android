@@ -1,17 +1,41 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_controller/core/background/background_event_bus.dart';
 import 'package:mobile_controller/core/handler/provider/service_coordinator_provider.dart';
-import 'package:mobile_controller/core/network/provider/auto_connect_provider.dart';
+import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
 import 'package:mobile_controller/core/network/provider/connection_provider.dart';
+import 'package:mobile_controller/core/misc/app_logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile_controller/core/storage/provider/storage_service_provider.dart';
 import 'package:mobile_controller/core/network/data/socket_connection_manager.dart';
 import 'package:mobile_controller/core/network/domain/connection_config.dart';
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
 Future<void> initalizeBackgroundServices() async {
   final service = FlutterBackgroundService();
+
+  const AndroidNotificationChannel channel = AndroidNotificationChannel(
+    'syncos_background_service', // id
+    'SyncOS Background Service', // title
+    description: 'Running SyncOS in background', // description
+    importance: Importance.low, // importance must be at low or higher level
+  );
+
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
+  if (Platform.isAndroid) {
+    const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/launcher_icon');
+    const InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
+    await flutterLocalNotificationsPlugin.initialize(settings: initializationSettings);
+
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+  }
 
   await service.configure(
     androidConfiguration: AndroidConfiguration(
@@ -22,18 +46,19 @@ Future<void> initalizeBackgroundServices() async {
       initialNotificationTitle: 'SyncOS',
       initialNotificationContent: 'Running in background...',
       foregroundServiceNotificationId: 888,
+      foregroundServiceTypes: [AndroidForegroundType.dataSync],
     ),
     iosConfiguration: IosConfiguration(
       autoStart: true,
       onForeground: onStart,
-      // onBackground: onIosBackground
     ),
   );
 }
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
-  DartPluginRegistrant.ensureInitialized();
+  BackgroundEventBus.setService(service);
+  engineNamespace = 'BACKGROUND';
   WidgetsFlutterBinding.ensureInitialized();
 
   final prefs = await SharedPreferences.getInstance();
@@ -52,30 +77,39 @@ void onStart(ServiceInstance service) async {
       service.stopSelf();
     });
   }
-  
-  final storageContainer = ProviderContainer(
-    overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-    ],
-  );
-  final storage = storageContainer.read(storageServiceProvider);
-  final realConnectionManager = SocketConnectionManager(storage);
 
+  // Provider container for background isolate
   final container = ProviderContainer(
     overrides: [
       sharedPreferencesProvider.overrideWithValue(prefs),
-      connectionManagerProvider.overrideWithValue(realConnectionManager),
+      connectionManagerProvider.overrideWith((ref) {
+        final storage = ref.watch(storageServiceProvider);
+        return SocketConnectionManager(storage);
+      }),
+      
     ],
   );
 
   final connectionManager = container.read(connectionManagerProvider);
+  final storage = container.read(storageServiceProvider);
+
+  final coordinator = container.read(serviceCoordinatorProvider);
   
   // Forward status changes to UI
   connectionManager.connectionStatusStream.listen((status) {
     service.invoke('connection_status', {
       'status': status.toString(),
-      'config': connectionManager.activeConfig?.toJson(),
+      'config': connectionManager.serverConfig?.toJson(),
     });
+
+    // set's notification
+    if (service is AndroidServiceInstance) {
+      service.setForegroundNotificationInfo(
+        title: "",
+        content: (status == ConnectionStatus.connected) ? 
+          "Connected to remote device" : "Not connected to any device"
+      );
+    }
   });
 
   // Forward raw messages to UI
@@ -86,6 +120,16 @@ void onStart(ServiceInstance service) async {
   // Forward pairing events to UI
   storage.pairingStream.listen((isPaired) {
     service.invoke('paired_status', {'isPaired': isPaired});
+  });
+
+  connectionManager.nearbyDevicesStream.listen((data) {
+    service.invoke('device_discovery', {
+      'config': data,
+    });
+  });
+
+  service.on('start').listen((event) {
+    connectionManager.start();
   });
 
   // Listen to UI commands
@@ -101,6 +145,10 @@ void onStart(ServiceInstance service) async {
     }
   });
 
+  service.on('unpair').listen((event) async {
+    await connectionManager.unpair();
+  });
+
   service.on('disconnect').listen((event) {
     connectionManager.disconnect();
   });
@@ -114,27 +162,28 @@ void onStart(ServiceInstance service) async {
       );
     }
   });
+  service.on('stopDiscovery').listen((event) {
+    connectionManager.stopDiscovery();
+  });
   
   service.on('request_initial_state').listen((event) {
     service.invoke('connection_status', {
       'status': connectionManager.status.toString(),
-      'config': connectionManager.activeConfig?.toJson(),
+      'config': connectionManager.serverConfig?.toJson(),
     });
     storage.isPaired.then((isPaired) {
       service.invoke('paired_status', {'isPaired': isPaired});
     });
   });
 
-  // IMPORTANT: coordinator must be initialized BEFORE autoConnect so it is already
-  // subscribed to connectionStatusStream when the connection attempt fires 'connected'.
-  // If autoConnect fires first, the 'connected' event can arrive before coordinator
-  // has subscribed and services will never start.
-  container.read(serviceCoordinatorProvider);
-  container.read(autoConnectProvider);
+  service.on('stopService').listen((event) {
+    coordinator.dispose();
+    container.dispose();
+  });
 
-  // DEBUG: Print a message every 5 seconds to prove the isolate is alive
-  Timer.periodic(const Duration(seconds: 5), (timer) {
-    debugPrint('[BACKGROUND ISOLATE] Service is currently running at Time: ${DateTime.now()}');
+
+  Timer.periodic(const Duration(seconds: 30), (timer) {
+    logDebug('Daemon', 'Running');
   });
 }
 

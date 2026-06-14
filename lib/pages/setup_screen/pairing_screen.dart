@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_controller/core/network/domain/connection_config.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../theme/app_theme.dart';
 import '../../features/pairing/provider/pairing_notifier.dart';
@@ -33,19 +34,17 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
 
     try {
       final data = jsonDecode(code) as Map<String, dynamic>;
-      if (data.containsKey('ip') &&
-          data.containsKey('port') &&
-          data.containsKey('token') &&
-          data.containsKey('type')) {
+      if (data.containsKey('config') && data.containsKey('token')) {
         _scannerController.stop();
 
+        final config = ConnectionConfig.fromMap(data['config']);
+        final token = data['token'];
 
         final success =
-            await ref.read(pairingProvider.notifier).pair(data);
+            await ref.read(pairingProvider.notifier).pair(config, token);
 
         if (!mounted) return;
 
-        debugPrint("success value of handlebarcode : $success");
         if (success) {
           Navigator.pop(context);
         } else {

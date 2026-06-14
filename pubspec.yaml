@@ -52,10 +52,13 @@ dependencies:
   mocktail: ^1.0.5
   riverpod_annotation: ^4.0.2
   network_info_plus: ^8.1.0
-  permission_handler: ^11.0.0
+  permission_handler: ^12.0.3
   json_annotation: ^4.11.0
   flutter_secure_storage: ^10.3.1
   flutter_background_service: ^5.1.0
+  flutter_ringtone_player: ^4.0.0+4
+  rxdart: ^0.28.0
+  url_launcher: ^6.3.2
   syncos_native:
     path: ./syncos_native
 
@@ -68,6 +71,7 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
+  flutter_launcher_icons: ^0.14.4
   flutter_lints: ^6.0.0
   build_runner: ^2.15.0
   riverpod_generator: ^4.0.3
@@ -81,7 +85,7 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/
+    - assets/
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
@@ -117,3 +121,9 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: false
+  image_path: "assets/app_icon.png"
+  min_sdk_android: 21 # Required for Android 5.0+

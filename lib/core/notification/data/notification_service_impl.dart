@@ -7,7 +7,7 @@ class NotificationServiceImpl implements INotificationService {
 
   @override
   Future<void> init() async {
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
 
     await _plugin.initialize(
       settings: const InitializationSettings(android: androidInit),
@@ -61,7 +61,7 @@ class NotificationServiceImpl implements INotificationService {
       onlyAlertOnce: true,
       ongoing: isOngoing, // Dynamic status
       autoCancel: !isOngoing, // Allows the notification to disappear when clicked after finishing
-      icon: '@mipmap/ic_launcher',
+      icon: '@mipmap/launcher_icon',
 
       actions: isOngoing ? <AndroidNotificationAction>[
         const AndroidNotificationAction(
@@ -92,7 +92,7 @@ class NotificationServiceImpl implements INotificationService {
       title: title,
       body: error,
       urgency: 3,
-      icon: '@mipmap/ic_launcher',
+      icon: '@mipmap/launcher_icon',
     );
   }
 
@@ -102,7 +102,7 @@ class NotificationServiceImpl implements INotificationService {
     required String title,
     String? body,
     int urgency = 1,
-    String icon = '@mipmap/ic_launcher',
+    String icon = '@mipmap/launcher_icon',
   }) async {
     final androidImportance = switch (urgency) {
       0 => Importance.low,

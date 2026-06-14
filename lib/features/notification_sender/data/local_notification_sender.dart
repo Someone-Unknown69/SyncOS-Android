@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
 import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
+import 'package:mobile_controller/core/misc/app_logging.dart';
 import 'package:mobile_controller/features/notification_sender/domain/model/app_notification.dart';
 import '../domain/i_local_notification_sender.dart';
 
@@ -24,24 +24,24 @@ class NotificationReceiverImpl implements INotificationListener{
   @override
   Future<void> start() async {
     if (_notificationSubscription != null) return;
+    logDebug('Notification Listener', 'Waking up service');
 
     try {
       final dynamic result = await _methodChannel.invokeMethod('initializeNotificationDetection');
       final bool hasPermission = result ?? false;
 
       if (!hasPermission) {
-        debugPrint('[NotificationReceiver] Permission missing');
-        _methodChannel.invokeMethod('openNotificationSettings');
+        logDebug('Notification Listener', 'Permission missing');
         return;
       }
 
       _notificationSubscription = _eventChannel.receiveBroadcastStream().listen(
         (dynamic event) => _handleNotification(Map<String, dynamic>.from(event)),
-        onError: (e) => debugPrint('[NotificationReceiver] Stream error: $e'),
+        onError: (e) => logDebug('Notification Listener', 'Stream error $e'),
         onDone: () => _notificationSubscription = null,
       );
     } catch (e) {
-      debugPrint('[NotificationReceiver] Initialization failed: $e');
+      logDebug('Notification Listener', 'Initialization Failed');
     }
   }
 
@@ -53,7 +53,7 @@ class NotificationReceiverImpl implements INotificationListener{
         title: data['titleText'] ?? '',
         body: data['bodyText'] ?? '',
         timestamp: DateTime.now(),
-        colorValue: data['color'] ?? 0, // Ensure you have a default
+        colorValue: data['color'] ?? 0, 
         packageName: data['packageName'] ?? 'Unknown',
         expiresAt: DateTime.now().add(const Duration(minutes: 5)),
       );
@@ -63,23 +63,25 @@ class NotificationReceiverImpl implements INotificationListener{
         'receive', 
         notification.toMap()
       );
-      debugPrint('[NotificationReceiver] Notification sent to server');
+      logDebug('Notification Listener', 'Notification Sent');
     } catch (e) {
-      debugPrint('[NotificationReceiver] Error formatting payload: $e');
+      logDebug('Notification Listener', 'Error Formatting Payload');
     }
   }
 
   @override
-  void stop() {
-    _notificationSubscription?.cancel();
-    _notificationSubscription = null;
-    _methodChannel.invokeMethod('dispose').catchError((e) => debugPrint('$e'));
-  }
+  Future<void> stop() async {
+    if (_notificationSubscription == null) return;
 
-  @override
-  Future<void> dispose() async {
+    logDebug('Notification Listener', 'Stopping notification listener in background');
     await _notificationSubscription?.cancel();
     _notificationSubscription = null;
-    await _methodChannel.invokeMethod('dispose').catchError((e) => debugPrint('$e'));
+    
+    try {
+      await _methodChannel.invokeMethod('dispose');
+      logDebug('Notification Listener', 'Native resources cleanly disposed');
+    } catch (e) {
+      logDebug('Notification Listener', 'Native dispose warning (Safe to ignore if connection drops): $e');
+    }
   }
 }

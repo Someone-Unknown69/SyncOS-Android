@@ -150,7 +150,6 @@ class MusicDetectionHandler(private val context: Context) {
     }
 
     internal fun registerPlaybackCallbacks() {
-        Log.d("MusicDetection", "registerPlaybackCallbacks called")
         val managerCopy = mediaSessionManager
         if (managerCopy == null) {
             Log.w("MusicDetection", "Cannot register callbacks: mediaSessionManager is null (initializeMusicDetection not yet called)")
@@ -160,7 +159,6 @@ class MusicDetectionHandler(private val context: Context) {
         
         try {
             val controllers = managerCopy.getActiveSessions(listenerComponent)
-            Log.d("MusicDetection", "registerPlaybackCallbacks: Found ${controllers.size} active sessions")
             for (controller in controllers) {
                 val callback = object : MediaController.Callback() {
                     override fun onPlaybackStateChanged(state: PlaybackState?) {
@@ -189,10 +187,8 @@ class MusicDetectionHandler(private val context: Context) {
         // Retry if art or duration is missing (both can arrive late from the app)
         val artMissing = art == null
         val durationMissing = duration <= 0L
-        Log.d("MusicDetection", "emitMetadata: current artMissing=$artMissing, durationMissing=$durationMissing")
 
         if (artMissing && attempt < 5) {
-            Log.d("MusicDetection", "emitMetadata: Retrying (attempt $attempt), artMissing=$artMissing, durationMissing=$durationMissing")
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 emitMetadata(controller, controller.playbackState, attempt + 1)
             }, 300)

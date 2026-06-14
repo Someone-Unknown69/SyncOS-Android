@@ -11,6 +11,7 @@ class AppRoutes {
 
   // home screen routes
   static const String gamepad = '$home/gamepad';
+  static const String runCommands = '$home/runCommands';
 
   // gamepad page routes
   static const launchGamepad = '$gamepad/launchGamepad';
@@ -20,5 +21,5 @@ class AppRoutes {
   // settings page routes
   static const String themeMode = '$settings/themeMode';
   static const String connectionDetails = '$settings/connectionDetails';
-  static const String about = '$settings/about';
+  static const String aboutScreen = '$settings/aboutScreen';
 }

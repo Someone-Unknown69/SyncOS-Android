@@ -1,78 +1,80 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
-import 'package:mobile_controller/features/music/provider/remote_media_state.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
-
+import 'package:mobile_controller/core/background/background_event_bus.dart';
+import 'package:mobile_controller/core/handler/domain/i_command_dispatcher.dart';
+import 'package:mobile_controller/core/misc/app_logging.dart';
 import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
-import 'package:mobile_controller/features/device_info/provider/remote_device_info_state.dart';
-import 'package:mobile_controller/features/battery/provider/remote_battery_state.dart';
-import 'package:mobile_controller/features/file_transfer/data/file_transfer_service.dart';
+import 'package:mobile_controller/core/utilities/domain/i_ringtone_service.dart';
 import 'package:mobile_controller/features/music/domain/i_local_media_sender.dart';
 
-class CommandDispatcher {
-  final Ref ref;
+class CommandDispatcher implements ICommandDispatcher {
   final IConnectionManager _connectionManager;
-  final IMediaService _mediaService;
-  final FileTransferService _fileTransferService;
+
+  // Services that strictly run in background and have no intention to use UI
+  final IRingtoneService _ringtoneService;
+  final IMediaService _mediaService;            // Only for control commands
 
   StreamSubscription<String>? _rawMessageSubscription;
   bool _isStarted = false;
 
   CommandDispatcher(
-    this.ref,
-    this._connectionManager, 
+    this._connectionManager,
+    this._ringtoneService,
     this._mediaService,
-    this._fileTransferService,
-  );
+  ) {
+    logDebug('Command Dispatcher', 'Initialized');
+  }
 
+  @override
   void start() {
     if (_isStarted) return;
     _isStarted = true;
+    logDebug('Command Dispatcher', 'Service started and listening for network messages');
 
     _rawMessageSubscription = _connectionManager.rawMessageStream.listen((rawMessage) {
-      final Map<String, dynamic> data = jsonDecode(rawMessage);
-      final String operation = data['op'];
-      final String action = data['action'];
-      final Map<String, dynamic> args = data['args'];
+      try {
+        final Map<String, dynamic> data = jsonDecode(rawMessage);
+        logDebug('Command Dispatcher', 'Recieved : $data');
+        
+        // Entry point for background running services
+        _handleOperation(data);
 
-      debugPrint('[Dispatcher] : Recieved $data');
-
-      switch(operation) {
-        case 'music':
-          if(action == 'update_metadata') {
-            ref.read(musicProvider.notifier).updateMetadata(args);
-          } else if (action == 'control') {
-            _mediaService.sendControlCommand(args);
-          }
-          break;
-        case 'battery_info':
-          ref.read(batteryProvider.notifier).update(
-            args['level'] ?? 0, 
-            args['status'] ?? false
-          );
-          break;
-        case 'device_info':
-          ref.read(deviceInfoProvider.notifier).update(args['name']);
-          break;
-        case 'file_transfer':
-          if(action == 'receive') {
-            _fileTransferService.recieveFile(args);
-          } else if(action == 'send') {
-            // will add ability to send file requests in future 
-          } 
-          break;
+        // Entry point for foreground UI updates
+        BackgroundEventBus.emit('update_ui_event', {
+          'operation': data['op'],
+          'action': data['action'],
+          'args': data['args'],
+        });
+      } catch (e) {
+        logDebug('Command Dispatcher', 'Failed to process message: $e');
       }
     });
   }
 
+  void _handleOperation(Map<String, dynamic> data) {
+    final operation = data['op'];
+    final action = data['action'];
+    final args = data['args'] as Map<String, dynamic>;
+
+    switch (operation) {
+      case 'ring_device':
+        _ringtoneService.ringDevice(data: args);
+        break;
+      case 'music':
+        if (action == 'control') {
+          _mediaService.sendControlCommand(args);
+        }
+        break;
+      default:
+        logDebug('Command Dispatcher', 'Not a background service command');
+    }
+  }
+
+  @override
   void stop() {
+    logDebug('Command Dispatcher', 'Stopping listener');
     _rawMessageSubscription?.cancel();
     _rawMessageSubscription = null;
     _isStarted = false;
-  }
-
-  void dispose() {
-    stop();
   }
 }

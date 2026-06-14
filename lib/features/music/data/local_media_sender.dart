@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
+import 'package:mobile_controller/core/misc/app_logging.dart';
 import '../domain/i_local_media_sender.dart';
 import '../domain/models/media_info.dart';
-import 'package:flutter/foundation.dart';
 
 // The logic here is essentially a data-processing pipeline. 
 // The service opens a persistent channel to the OS (via EventChannel), pipes the raw map data
@@ -48,9 +48,15 @@ class MediaServiceImpl implements IMediaService{
 
   @override
   Future<void> start() async {
-    final granted = await _methodChannel.invokeMethod('initializeMusicDetection');
-    debugPrint('[MediaService] initializeMusicDetection granted=$granted');
-    _startListening();
+    logDebug('Media Listener', 'Waking up service');
+
+    try {
+      final granted = await _methodChannel.invokeMethod('initializeMusicDetection');
+      logDebug('Media Listener', 'initializeMusicDetection granted=$granted');
+      _startListening();
+    } catch (e) {
+      logDebug('Media Listener', 'Failed to initialize platform channels: $e');
+    }
   }
 
   void _startListening() {
@@ -84,10 +90,10 @@ void _processMap(Map<String, dynamic> info) {
   // If neither, but seeked, send State Change.
   
   if (isNewTrack || isArtDelayed) {
-    debugPrint('[Media Service] Song Change');
+    logDebug('Media Listener', 'Song Change');
     _sendSongChange(info);
   } else if (isStateChange || isSeek) {
-    debugPrint('[Media Service] State/Seek Change');
+    logDebug('Media Listener', 'Seek/State Change');
     _sendStateChange(info);
     _cache.update(info, _cache.lastTrackIdentity); // Update cache without triggering song-change logic
   }
@@ -170,6 +176,8 @@ void _processMap(Map<String, dynamic> info) {
         'play_pause': 'playPause'
       };
 
+      logDebug('Media Listener', "Called method ${methodPattern.toString()}");
+
       final targetMethod = methodMap[methodPattern];
       if (targetMethod != null) {
         await _methodChannel.invokeMethod(targetMethod);
@@ -180,19 +188,21 @@ void _processMap(Map<String, dynamic> info) {
   }
 
   @override
-  void stop() {
+  Future<void> stop() async {
     _stopListening();
   }
 
   @override
-  void dispose() {
-    stop();
-    _controller.close();
+  Future<void> dispose() async {
+    await stop();
+    await _controller.close();
   }
 
   void _stopListening() {
+    if (_musicSubscription == null) return;
     _musicSubscription?.cancel();
     _musicSubscription = null;
+    logDebug('Media Listener', "Music platform channels cleanly detached");
   }
 
 }

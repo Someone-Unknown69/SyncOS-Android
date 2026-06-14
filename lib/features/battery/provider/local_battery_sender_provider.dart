@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_controller/core/network/provider/connection_provider.dart';
-import '../../../core/hardware/provider/hardware_providers.dart';
+import '../../../core/utilities/provider/providers.dart';
 import '../data/local_battery_sender.dart';
 
 final batteryMonitorProvider = Provider<BatteryMonitorService>((ref) {

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
-import 'package:mobile_controller/core/hardware/domain/i_battery_info.dart';
-import 'package:mobile_controller/core/hardware/domain/i_device_info.dart';
+import 'package:mobile_controller/core/utilities/domain/i_battery_info.dart';
+import 'package:mobile_controller/core/utilities/domain/i_device_info.dart';
 import '../domain/i_local_battery_sender.dart';
 
 
