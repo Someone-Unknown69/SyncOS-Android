@@ -6,6 +6,14 @@ gradle-wrapper.jar
 /local.properties
 GeneratedPluginRegistrant.java
 .cxx/
+# Android specific
+.gradle/
+.idea/
+*.iml
+local.properties
+.DS_Store
+build/
+app/build/
 
 # Remember to never publicly share your keystore.
 # See https://flutter.dev/to/reference-keystore
