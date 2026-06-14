@@ -21,5 +21,5 @@ class AppRoutes {
   // settings page routes
   static const String themeMode = '$settings/themeMode';
   static const String connectionDetails = '$settings/connectionDetails';
-  static const String about = '$settings/about';
+  static const String aboutScreen = '$settings/aboutScreen';
 }

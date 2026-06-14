@@ -92,7 +92,9 @@ class SettingsScreen extends ConsumerWidget {
           icon: Icons.info_outline_rounded,
           title: 'SyncOS',
           subtitle: 'Version 1.0.0',
-          onTap: null,
+          onTap: () {
+            AppRouter.pushRoute(context, AppRoutes.aboutScreen);
+          }
         ),
       ]
     );
