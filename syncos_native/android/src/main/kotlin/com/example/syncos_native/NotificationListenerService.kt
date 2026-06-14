@@ -106,7 +106,7 @@ class MusicNotificationListenerService : NotificationListenerService() {
             "packageName" to sbn.packageName
         )
 
-        val intent = Intent("com.example.mobile_controller.NEW_NOTIFICATION").apply {
+        val intent = Intent("com.example.syncos_android.NEW_NOTIFICATION").apply {
             putExtra("notification_data", payload)
         }
 

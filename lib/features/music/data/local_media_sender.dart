@@ -1,7 +1,9 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'dart:async';
 import 'package:flutter/services.dart';
-import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
-import 'package:mobile_controller/core/misc/app_logging.dart';
+import 'package:syncos_android/core/network/domain/i_connection_manager.dart';
+import 'package:syncos_android/core/misc/app_logging.dart';
 import '../domain/i_local_media_sender.dart';
 import '../domain/models/media_info.dart';
 

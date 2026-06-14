@@ -1,5 +1,7 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'dart:async';
-import 'package:mobile_controller/core/misc/app_logging.dart';
+import 'package:syncos_android/core/misc/app_logging.dart';
 import '../domain/i_battery_info.dart';
 import 'package:battery_plus/battery_plus.dart';
 

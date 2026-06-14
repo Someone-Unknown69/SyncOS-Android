@@ -1,6 +1,8 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 // lib/features/pairing/provider/pairing_notifier.dart
-import 'package:mobile_controller/core/network/domain/connection_config.dart';
-import 'package:mobile_controller/core/storage/provider/storage_service_provider.dart';
+import 'package:syncos_android/core/network/domain/connection_config.dart';
+import 'package:syncos_android/core/storage/provider/storage_service_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../data/pairing_service.dart';
 import '../../../core/network/provider/connection_provider.dart';

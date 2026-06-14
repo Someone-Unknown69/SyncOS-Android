@@ -1,8 +1,10 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
-import 'package:mobile_controller/core/network/domain/connection_config.dart';
+import 'package:syncos_android/core/network/domain/i_connection_manager.dart';
+import 'package:syncos_android/core/network/domain/connection_config.dart';
 import 'package:rxdart/rxdart.dart';
 
 class ProxyConnectionManager implements IConnectionManager {

@@ -1,14 +1,16 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_controller/core/config/app_router.dart';
-import 'package:mobile_controller/core/config/app_routes.dart';
-import 'package:mobile_controller/core/network/domain/connection_config.dart';
-import 'package:mobile_controller/core/network/provider/connection_provider.dart';
-import 'package:mobile_controller/features/pairing/provider/pairing_notifier.dart';
-import 'package:mobile_controller/pages/components/base_page.dart';
-import 'package:mobile_controller/pages/components/fab_menu.dart';
-import 'package:mobile_controller/pages/components/settings_tile.dart';
-import 'package:mobile_controller/theme/app_theme.dart';
+import 'package:syncos_android/core/config/app_router.dart';
+import 'package:syncos_android/core/config/app_routes.dart';
+import 'package:syncos_android/core/network/domain/connection_config.dart';
+import 'package:syncos_android/core/network/provider/connection_provider.dart';
+import 'package:syncos_android/features/pairing/provider/pairing_notifier.dart';
+import 'package:syncos_android/pages/components/base_page.dart';
+import 'package:syncos_android/pages/components/fab_menu.dart';
+import 'package:syncos_android/pages/components/settings_tile.dart';
+import 'package:syncos_android/theme/app_theme.dart';
 
 class SetupScreen extends ConsumerStatefulWidget {
   const SetupScreen({super.key});

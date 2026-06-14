@@ -1,13 +1,15 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_controller/core/network/domain/connection_config.dart';
-import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
-import 'package:mobile_controller/core/network/provider/connection_provider.dart';
-import 'package:mobile_controller/core/storage/provider/storage_service_provider.dart';
-import 'package:mobile_controller/pages/components/base_page.dart';
-import 'package:mobile_controller/pages/components/settings_tile.dart';
-import 'package:mobile_controller/theme/app_theme.dart';
+import 'package:syncos_android/core/network/domain/connection_config.dart';
+import 'package:syncos_android/core/network/domain/i_connection_manager.dart';
+import 'package:syncos_android/core/network/provider/connection_provider.dart';
+import 'package:syncos_android/core/storage/provider/storage_service_provider.dart';
+import 'package:syncos_android/pages/components/base_page.dart';
+import 'package:syncos_android/pages/components/settings_tile.dart';
+import 'package:syncos_android/theme/app_theme.dart';
 
 final _connectionStatusProvider = Provider<ConnectionStatus>((ref) {
   final connectionManager = ref.watch(connectionManagerProvider);

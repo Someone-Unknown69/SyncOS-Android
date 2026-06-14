@@ -1,15 +1,17 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_controller/core/background/background_event_bus.dart';
-import 'package:mobile_controller/core/handler/provider/service_coordinator_provider.dart';
-import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
-import 'package:mobile_controller/core/network/provider/connection_provider.dart';
-import 'package:mobile_controller/core/misc/app_logging.dart';
+import 'package:syncos_android/core/background/background_event_bus.dart';
+import 'package:syncos_android/core/handler/provider/service_coordinator_provider.dart';
+import 'package:syncos_android/core/network/domain/i_connection_manager.dart';
+import 'package:syncos_android/core/network/provider/connection_provider.dart';
+import 'package:syncos_android/core/misc/app_logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:mobile_controller/core/storage/provider/storage_service_provider.dart';
-import 'package:mobile_controller/core/network/data/socket_connection_manager.dart';
-import 'package:mobile_controller/core/network/domain/connection_config.dart';
+import 'package:syncos_android/core/storage/provider/storage_service_provider.dart';
+import 'package:syncos_android/core/network/data/socket_connection_manager.dart';
+import 'package:syncos_android/core/network/domain/connection_config.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';

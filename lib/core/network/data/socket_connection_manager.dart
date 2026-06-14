@@ -1,10 +1,12 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
-import 'package:mobile_controller/core/storage/data/storage_service.dart';
-import 'package:mobile_controller/core/misc/app_logging.dart';
+import 'package:syncos_android/core/storage/data/storage_service.dart';
+import 'package:syncos_android/core/misc/app_logging.dart';
 import 'package:rxdart/rxdart.dart';
 
 import '../domain/i_connection_manager.dart';

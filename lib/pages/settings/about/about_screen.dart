@@ -1,8 +1,10 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'package:flutter/material.dart';
-import 'package:mobile_controller/pages/components/base_page.dart';
-import 'package:mobile_controller/pages/components/settings_tile.dart';
-import 'package:mobile_controller/pages/components/tile.dart';
-import 'package:mobile_controller/theme/app_theme.dart';
+import 'package:syncos_android/pages/components/base_page.dart';
+import 'package:syncos_android/pages/components/settings_tile.dart';
+import 'package:syncos_android/pages/components/tile.dart';
+import 'package:syncos_android/theme/app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:math' as math;
 
@@ -154,7 +156,7 @@ class AboutScreen extends StatelessWidget {
           leading: const Icon(Icons.code_rounded),
           title: 'Github Repository',
           subtitle: 'View source Code',
-          onTap: () => launchUrl(Uri.parse('https://github.com/Someone-Unknown69/SyncOS/tree/main/mobile_controller')),
+          onTap: () => launchUrl(Uri.parse('https://github.com/Someone-Unknown69/SyncOS/tree/main/syncos_android')),
         ),
 
         buildTile(

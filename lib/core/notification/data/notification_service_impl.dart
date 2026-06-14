@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import '../domain/i_notification_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 

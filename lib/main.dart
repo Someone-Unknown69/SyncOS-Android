@@ -1,17 +1,19 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_controller/core/background/background_service.dart';
-import 'package:mobile_controller/core/handler/data/proxy_command_dispatcher.dart';
-import 'package:mobile_controller/core/handler/provider/command_dispatcher_provider.dart';
-import 'package:mobile_controller/core/handler/provider/service_coordinator_provider.dart';
-import 'package:mobile_controller/core/network/data/proxy_connection_manager.dart';
-import 'package:mobile_controller/core/network/provider/connection_provider.dart';
-import 'package:mobile_controller/core/notification/data/notification_service_impl.dart';
-import 'package:mobile_controller/core/notification/provider/notification_provider.dart';
-import 'package:mobile_controller/core/misc/app_logging.dart';
-import 'package:mobile_controller/features/file_transfer/provider/file_transfer_provider.dart';
-import 'package:mobile_controller/theme/provider/theme_provider.dart';
+import 'package:syncos_android/core/background/background_service.dart';
+import 'package:syncos_android/core/handler/data/proxy_command_dispatcher.dart';
+import 'package:syncos_android/core/handler/provider/command_dispatcher_provider.dart';
+import 'package:syncos_android/core/handler/provider/service_coordinator_provider.dart';
+import 'package:syncos_android/core/network/data/proxy_connection_manager.dart';
+import 'package:syncos_android/core/network/provider/connection_provider.dart';
+import 'package:syncos_android/core/notification/data/notification_service_impl.dart';
+import 'package:syncos_android/core/notification/provider/notification_provider.dart';
+import 'package:syncos_android/core/misc/app_logging.dart';
+import 'package:syncos_android/features/file_transfer/provider/file_transfer_provider.dart';
+import 'package:syncos_android/theme/provider/theme_provider.dart';
 
 import 'core/config/app_router.dart';
 import 'theme/app_theme.dart';

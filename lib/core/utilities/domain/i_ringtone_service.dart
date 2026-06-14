@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 // THIS SHALL RUN IN BACKGROUND ONLY BTW
 
 abstract class IRingtoneService {

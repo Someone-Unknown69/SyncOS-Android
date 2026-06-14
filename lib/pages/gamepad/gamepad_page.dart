@@ -1,7 +1,9 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'package:flutter/material.dart';
-import 'package:mobile_controller/core/config/app_router.dart';
-import 'package:mobile_controller/core/config/app_routes.dart';
-import 'package:mobile_controller/pages/components/base_page.dart';
+import 'package:syncos_android/core/config/app_router.dart';
+import 'package:syncos_android/core/config/app_routes.dart';
+import 'package:syncos_android/pages/components/base_page.dart';
 import '../../theme/app_theme.dart';
 import '../components/settings_tile.dart';
 

@@ -1,12 +1,14 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'dart:async';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_controller/core/handler/domain/i_command_dispatcher.dart';
-import 'package:mobile_controller/core/misc/app_logging.dart';
-import 'package:mobile_controller/features/file_transfer/data/file_transfer_service.dart';
-import 'package:mobile_controller/features/music/provider/remote_media_state.dart';
-import 'package:mobile_controller/features/battery/provider/remote_battery_state.dart';
-import 'package:mobile_controller/features/device_info/provider/remote_device_info_state.dart';
+import 'package:syncos_android/core/handler/domain/i_command_dispatcher.dart';
+import 'package:syncos_android/core/misc/app_logging.dart';
+import 'package:syncos_android/features/file_transfer/data/file_transfer_service.dart';
+import 'package:syncos_android/features/music/provider/remote_media_state.dart';
+import 'package:syncos_android/features/battery/provider/remote_battery_state.dart';
+import 'package:syncos_android/features/device_info/provider/remote_device_info_state.dart';
 
 class ProxyCommandDispatcher implements ICommandDispatcher {
   final _service = FlutterBackgroundService();

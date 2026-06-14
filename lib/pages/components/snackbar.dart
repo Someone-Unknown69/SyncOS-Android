@@ -1,5 +1,7 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'package:flutter/material.dart';
-import 'package:mobile_controller/main.dart';
+import 'package:syncos_android/main.dart';
 
 class AppSnackbar {
   static void show({

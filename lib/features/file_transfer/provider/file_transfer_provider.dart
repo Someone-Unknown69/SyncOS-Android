@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/file_transfer_service.dart';
 import '../../../core/network/provider/connection_provider.dart';

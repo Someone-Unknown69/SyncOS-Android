@@ -1,7 +1,9 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_controller/pages/components/header.dart';
-import 'package:mobile_controller/theme/app_theme.dart';
+import 'package:syncos_android/pages/components/header.dart';
+import 'package:syncos_android/theme/app_theme.dart';
 
 class BasePage extends ConsumerWidget {
   final String title;

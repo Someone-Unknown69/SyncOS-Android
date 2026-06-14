@@ -1,11 +1,13 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'dart:async';
 import 'dart:convert';
-import 'package:mobile_controller/core/background/background_event_bus.dart';
-import 'package:mobile_controller/core/handler/domain/i_command_dispatcher.dart';
-import 'package:mobile_controller/core/misc/app_logging.dart';
-import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
-import 'package:mobile_controller/core/utilities/domain/i_ringtone_service.dart';
-import 'package:mobile_controller/features/music/domain/i_local_media_sender.dart';
+import 'package:syncos_android/core/background/background_event_bus.dart';
+import 'package:syncos_android/core/handler/domain/i_command_dispatcher.dart';
+import 'package:syncos_android/core/misc/app_logging.dart';
+import 'package:syncos_android/core/network/domain/i_connection_manager.dart';
+import 'package:syncos_android/core/utilities/domain/i_ringtone_service.dart';
+import 'package:syncos_android/features/music/domain/i_local_media_sender.dart';
 
 class CommandDispatcher implements ICommandDispatcher {
   final IConnectionManager _connectionManager;

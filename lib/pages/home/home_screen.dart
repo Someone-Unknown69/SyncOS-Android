@@ -1,19 +1,21 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_controller/features/clipboard/provider/local_clipboard_sender_provider.dart';
-import 'package:mobile_controller/features/file_transfer/provider/file_transfer_provider.dart';
+import 'package:syncos_android/features/clipboard/provider/local_clipboard_sender_provider.dart';
+import 'package:syncos_android/features/file_transfer/provider/file_transfer_provider.dart';
 
 import '../../core/network/domain/i_connection_manager.dart';
 import '../../core/network/provider/connection_provider.dart';
 import '../../features/music/provider/remote_media_state.dart';
-import 'package:mobile_controller/features/music/ui/music_player.dart';
+import 'package:syncos_android/features/music/ui/music_player.dart';
 import '../components/dashboard_item.dart';
 import '../../theme/app_theme.dart';
 import 'widgets/connection_status.dart';
 import 'widgets/dashboard_grid.dart';
 import 'widgets/dashboard_header.dart';
-import 'package:mobile_controller/core/config/app_routes.dart';
-import 'package:mobile_controller/core/config/app_router.dart';
+import 'package:syncos_android/core/config/app_routes.dart';
+import 'package:syncos_android/core/config/app_router.dart';
 
 final _connectionStatusStreamProvider =
     StreamProvider<ConnectionStatus>((ref) {

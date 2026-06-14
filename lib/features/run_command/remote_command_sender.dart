@@ -1,5 +1,7 @@
-import 'package:mobile_controller/core/network/domain/i_connection_manager.dart';
-import 'package:mobile_controller/features/run_command/models/remote_command.dart';
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
+import 'package:syncos_android/core/network/domain/i_connection_manager.dart';
+import 'package:syncos_android/features/run_command/models/remote_command.dart';
 
 class RemoteCommandSender {
   final IConnectionManager _connectionManager;

@@ -1,8 +1,10 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_controller/core/network/domain/connection_config.dart';
-import 'package:mobile_controller/core/storage/data/prefs_storage.dart';
-import 'package:mobile_controller/core/storage/data/secure_storage.dart';
-import 'package:mobile_controller/core/storage/data/storage_service.dart';
+import 'package:syncos_android/core/network/domain/connection_config.dart';
+import 'package:syncos_android/core/storage/data/prefs_storage.dart';
+import 'package:syncos_android/core/storage/data/secure_storage.dart';
+import 'package:syncos_android/core/storage/data/storage_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'package:flutter_background_service/flutter_background_service.dart';

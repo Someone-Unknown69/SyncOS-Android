@@ -1,10 +1,12 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_controller/core/network/provider/connection_provider.dart';
-import 'package:mobile_controller/features/run_command/remote_command_sender.dart';
-import 'package:mobile_controller/pages/components/base_page.dart';
-import 'package:mobile_controller/features/run_command/models/remote_command.dart';
-import 'package:mobile_controller/theme/app_theme.dart';
+import 'package:syncos_android/core/network/provider/connection_provider.dart';
+import 'package:syncos_android/features/run_command/remote_command_sender.dart';
+import 'package:syncos_android/pages/components/base_page.dart';
+import 'package:syncos_android/features/run_command/models/remote_command.dart';
+import 'package:syncos_android/theme/app_theme.dart';
 
 class CommandScreen extends ConsumerStatefulWidget {
   const CommandScreen({super.key});

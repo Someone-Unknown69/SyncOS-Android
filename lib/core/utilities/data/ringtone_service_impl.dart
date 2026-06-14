@@ -1,7 +1,9 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'dart:async';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
-import 'package:mobile_controller/core/misc/app_logging.dart';
-import 'package:mobile_controller/core/utilities/domain/i_ringtone_service.dart';
+import 'package:syncos_android/core/misc/app_logging.dart';
+import 'package:syncos_android/core/utilities/domain/i_ringtone_service.dart';
 
 class AndroidRingtoneService implements IRingtoneService {
   bool _isRinging = false;

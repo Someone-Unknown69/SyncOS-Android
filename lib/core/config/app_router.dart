@@ -1,17 +1,19 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'package:flutter/material.dart';
-import 'package:mobile_controller/pages/gamepad/gamepad_page.dart';
-import 'package:mobile_controller/pages/run_command/command_page.dart';
-import 'package:mobile_controller/pages/settings/about/about_screen.dart';
-import 'package:mobile_controller/pages/settings/connection/connection_details.dart';
-import 'package:mobile_controller/pages/setup_screen/setup_screen.dart';
+import 'package:syncos_android/pages/gamepad/gamepad_page.dart';
+import 'package:syncos_android/pages/run_command/command_page.dart';
+import 'package:syncos_android/pages/settings/about/about_screen.dart';
+import 'package:syncos_android/pages/settings/connection/connection_details.dart';
+import 'package:syncos_android/pages/setup_screen/setup_screen.dart';
 import 'app_routes.dart';
 
-import 'package:mobile_controller/pages/home/home_screen.dart';
-import 'package:mobile_controller/pages/gamepad/launch_gamepad.dart';
-import 'package:mobile_controller/pages/settings/settings.dart';
-import 'package:mobile_controller/pages/main_layout/main_layout.dart';
-import 'package:mobile_controller/pages/settings/preferences/theme_mode_page.dart';
-import 'package:mobile_controller/pages/setup_screen/pairing_screen.dart';
+import 'package:syncos_android/pages/home/home_screen.dart';
+import 'package:syncos_android/pages/gamepad/launch_gamepad.dart';
+import 'package:syncos_android/pages/settings/settings.dart';
+import 'package:syncos_android/pages/main_layout/main_layout.dart';
+import 'package:syncos_android/pages/settings/preferences/theme_mode_page.dart';
+import 'package:syncos_android/pages/setup_screen/pairing_screen.dart';
 
 class AppRouter {
   static bool _isNavigating = false;

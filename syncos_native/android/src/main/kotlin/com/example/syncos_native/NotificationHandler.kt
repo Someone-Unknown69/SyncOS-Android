@@ -89,7 +89,7 @@ class NotificationHandler(private val context: Context) {
             }
         }
         
-        val filter = IntentFilter("com.example.mobile_controller.NEW_NOTIFICATION")
+        val filter = IntentFilter("com.example.syncos_android.NEW_NOTIFICATION")
         context.registerReceiver(notificationReceiver, filter, Context.RECEIVER_EXPORTED)
     }
 

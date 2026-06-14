@@ -6,18 +6,18 @@
     "configurations": [
     
         {
-            "name": "mobile_controller",
+            "name": "syncos_android",
             "request": "launch",
             "type": "dart"
         },
         {
-            "name": "mobile_controller (profile mode)",
+            "name": "syncos_android (profile mode)",
             "request": "launch",
             "type": "dart",
             "flutterMode": "profile"
         },
         {
-            "name": "mobile_controller (release mode)",
+            "name": "syncos_android (release mode)",
             "request": "launch",
             "type": "dart",
             "flutterMode": "release"

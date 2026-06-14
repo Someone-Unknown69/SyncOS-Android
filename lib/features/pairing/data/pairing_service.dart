@@ -1,7 +1,9 @@
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:mobile_controller/core/network/domain/connection_config.dart';
-import 'package:mobile_controller/core/storage/data/storage_service.dart';
+import 'package:syncos_android/core/network/domain/connection_config.dart';
+import 'package:syncos_android/core/storage/data/storage_service.dart';
 import '../../../core/network/domain/i_connection_manager.dart';
 
 class PairingService {
