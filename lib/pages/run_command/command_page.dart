@@ -69,6 +69,7 @@ class _CommandScreenState extends ConsumerState<CommandScreen> {
               key: Key(command.id),
               margin: const EdgeInsets.symmetric(vertical: 6.0),
               clipBehavior: Clip.antiAlias,
+              elevation: 0,
               child: ExpansionTile(
                 shape: const Border(),
                 expansionAnimationStyle: AnimationStyle(
@@ -79,7 +80,8 @@ class _CommandScreenState extends ConsumerState<CommandScreen> {
                   backgroundColor: Color(command.colorValue),
                   child: Icon(
                     command.requiresRoot ? Icons.security : Icons.terminal,
-                    color: Colors.white,
+                    color: Color(command.colorValue).computeLuminance() > 0.5 ? 
+                          Colors.black : Colors.white,
                   ),
                 ),
 
@@ -111,14 +113,14 @@ class _CommandScreenState extends ConsumerState<CommandScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(10.0),
                           decoration: BoxDecoration(
-                            color: Colors.black87,
-                            borderRadius: BorderRadius.circular(6.0),
+                            color: colorScheme.surfaceContainerLowest,
+                            borderRadius: BorderRadius.circular(AppTheme.borderRadius / 4),
                           ),
                           child: Text(
                             command.payload,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontFamily: 'monospace',
-                              color: Colors.greenAccent,
+                              color: Colors.green,
                               fontSize: 13.0,
                             ),
                           ),

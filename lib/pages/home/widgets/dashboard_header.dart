@@ -101,6 +101,7 @@ class Header extends ConsumerWidget {
     );
   }
 
+  // TODO : Implement ping and move the popmenu to components
   Widget buildContextMenu({
     required BuildContext context,
     required VoidCallback onDisconnect,

@@ -396,8 +396,7 @@ class SocketConnectionManager implements IConnectionManager{
     }
 
     if(op == 'unpair') {
-      _clearConnectionInfo();
-      disconnect();
+      unpair();
       debugPrint('[Socket] Remote device unpaired');
     }
     
@@ -468,17 +467,16 @@ class SocketConnectionManager implements IConnectionManager{
   Future<void> _sendRaw(String msg, {bool compress = true}) async {
     try {
       final rawBytes = utf8.encode(msg);
-      
       final List<int> payload = compress ? gzip.encode(rawBytes) : rawBytes;
-
       final lengthBytes = ByteData(4)..setUint32(0, payload.length, Endian.big);
-      
       final socket = _socket;
       
       socket!.add(lengthBytes.buffer.asUint8List());
       socket.add(payload);
+
+      await socket.flush();
     } catch (e) {
-      debugPrint('[Server/Client] Send raw error: $e');
+      debugPrint('[Socket] Send raw error: $e');
     }
   }
 
