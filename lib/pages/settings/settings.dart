@@ -45,17 +45,16 @@ class SettingsScreen extends ConsumerWidget {
               await showAppPopupDialog(
                 context,
                 title: 'Unpair Device',
-                subtitle: (asyncStatus.value == ConnectionStatus.disconnected) ? 
-                "Device is disconnected from server, If you are unpairing now then you have to unpair server explicitly" :
-                'This will disconnect from the server and remove saved pairing data.',
+                subtitle: 
+                  (asyncStatus.value == ConnectionStatus.connected) ? 
+                  'This will disconnect from the server and remove saved pairing data.' :
+                  "Device is disconnected from server, Note that If you are unpairing now then you have to unpair server explicitly" ,
+                
                 primaryButtonLabel: 'Unpair',
                 secondaryButtonLabel: 'Cancel',
                 onPrimaryPressed: () async {
                   final success = await ref.read(pairingProvider.notifier).unpairWithServer();
-
-
                   if (!context.mounted) return;
-
                   if (success) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(

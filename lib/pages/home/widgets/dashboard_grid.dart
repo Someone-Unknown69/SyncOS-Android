@@ -62,14 +62,8 @@ class DashboardCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(AppTheme.spacing * 0.4),
-                    decoration: BoxDecoration(
-                      color: colorScheme.primary.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(item.icon, size: 22, color: colorScheme.primary),
-                  ),
+                  Icon(item.icon, size: 28, color: colorScheme.primary),
+
                   Text(
                     item.label,
                     style: TextStyle(

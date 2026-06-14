@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "/home/kartik/Random_shi/Remote_Linux_Control/mobile_controller/linux"
+    "cmake.sourceDirectory": "/home/kartik/Random_shi/Remote_Linux_Control/mobile_controller/linux",
+    "git.ignoreLimitWarning": true
 }

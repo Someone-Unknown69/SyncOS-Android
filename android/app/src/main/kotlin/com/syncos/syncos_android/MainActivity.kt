@@ -1,4 +1,4 @@
-package com.example.mobile_controller
+package com.syncos.syncos_android
 
 import android.Manifest
 import android.content.Intent

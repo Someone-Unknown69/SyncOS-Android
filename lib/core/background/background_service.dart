@@ -11,9 +11,31 @@ import 'package:mobile_controller/core/storage/provider/storage_service_provider
 import 'package:mobile_controller/core/network/data/socket_connection_manager.dart';
 import 'package:mobile_controller/core/network/domain/connection_config.dart';
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 Future<void> initalizeBackgroundServices() async {
   final service = FlutterBackgroundService();
+
+  const AndroidNotificationChannel channel = AndroidNotificationChannel(
+    'syncos_background_service', // id
+    'SyncOS Background Service', // title
+    description: 'Running SyncOS in background', // description
+    importance: Importance.low, // importance must be at low or higher level
+  );
+
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
+  if (Platform.isAndroid) {
+    const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/launcher_icon');
+    const InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
+    await flutterLocalNotificationsPlugin.initialize(settings: initializationSettings);
+
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+  }
 
   await service.configure(
     androidConfiguration: AndroidConfiguration(
@@ -24,6 +46,7 @@ Future<void> initalizeBackgroundServices() async {
       initialNotificationTitle: 'SyncOS',
       initialNotificationContent: 'Running in background...',
       foregroundServiceNotificationId: 888,
+      foregroundServiceTypes: [AndroidForegroundType.dataSync],
     ),
     iosConfiguration: IosConfiguration(
       autoStart: true,
