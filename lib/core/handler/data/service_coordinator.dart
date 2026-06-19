@@ -1,10 +1,12 @@
 // Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
 
 import 'dart:async';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:syncos_android/core/handler/domain/i_command_dispatcher.dart';
 import 'package:syncos_android/core/network/domain/i_connection_manager.dart';
 import 'package:syncos_android/core/misc/app_logging.dart';
 import 'package:syncos_android/features/battery/domain/i_local_battery_sender.dart';
+import 'package:syncos_android/features/music/data/remote_media_service.dart';
 import 'package:syncos_android/features/music/domain/i_local_media_sender.dart';
 import 'package:syncos_android/features/notification_sender/domain/i_local_notification_sender.dart';
 
@@ -14,6 +16,8 @@ class ServiceCoordinator {
   final IMediaService _mediaService;
   final INotificationListener _notificationListener;
   final ICommandDispatcher _commandDispatcher;
+  final RemoteMediaService _remoteMediaService;
+  final ServiceInstance _service;
 
   bool running = false;
 
@@ -25,11 +29,15 @@ class ServiceCoordinator {
     required IMediaService mediaService,
     required INotificationListener notificationListener,
     required ICommandDispatcher commandDispatcher,
-  })  : _notificationListener = notificationListener,
-        _commandDispatcher = commandDispatcher,
-        _connectionManager = connectionManager,
-        _batteryMonitorService = batteryMonitorService,
-        _mediaService = mediaService {
+    required RemoteMediaService remoteMediaService,
+    required ServiceInstance service,
+  }) : _notificationListener = notificationListener,
+       _commandDispatcher = commandDispatcher,
+       _connectionManager = connectionManager,
+       _batteryMonitorService = batteryMonitorService,
+       _remoteMediaService = remoteMediaService,
+       _service = service,
+       _mediaService = mediaService {
     _init();
   }
 
@@ -37,13 +45,18 @@ class ServiceCoordinator {
     logDebug('Coordinator', 'Initializing ServiceCoordinator instance');
     _connectionManager.start();
 
-    _connectionSubscription = _connectionManager.connectionStatusStream.listen((status) async {
-      logDebug('Coordinator', 'Connection status changed to: ${status.name} and now ($running)');
+    _connectionSubscription = _connectionManager.connectionStatusStream.listen((
+      status,
+    ) async {
+      logDebug(
+        'Coordinator',
+        'Connection status changed to: ${status.name} and now ($running)',
+      );
       if (status == ConnectionStatus.connected) {
         await _startServices();
         running = true;
       } else {
-        if(running) {
+        if (running) {
           await _stopServices();
           running = false;
         }
@@ -52,43 +65,56 @@ class ServiceCoordinator {
   }
 
   Future<void> _startServices() async {
-    logDebug('Coordinator', 'Beginning sequential service activation lifecycle');
-    
+    logDebug(
+      'Coordinator',
+      'Beginning sequential service activation lifecycle',
+    );
+
     logDebug('Coordinator', 'Activating Battery Monitor Service [1/4]');
     await _batteryMonitorService.start();
-    
+
     logDebug('Coordinator', 'Activating Media Service [2/4]');
     await _mediaService.start();
-    
+
     logDebug('Coordinator', 'Activating Notification Listener [3/4]');
     await _notificationListener.start();
-    
+
+    logDebug('Coordinator', 'Activating remote media service');
+    await _remoteMediaService.start(backgroundService: _service);
+
     logDebug('Coordinator', 'Activating Command Dispatcher [4/4]');
     _commandDispatcher.start();
-    
+
     logDebug('Coordinator', 'All background subsystems successfully running');
   }
 
   Future<void> _stopServices() async {
-    logDebug('Coordinator', 'Beginning subsystem termination sequence');
-    
-    logDebug('Coordinator', 'Hilting Command Dispatcher teardown');
-    _commandDispatcher.stop();
-    
-    logDebug('Coordinator', 'Halting Battery Monitor Service');
-    _batteryMonitorService.stop(); 
+    logDebug(
+      'Coordinator',
+      'Beginning strict sequential subsystem termination sequence',
+    );
 
-    logDebug('Coordinator', 'Awaiting concurrent stop for Media and Notification subsystems');
-    await Future.wait<void>([
-      _mediaService.stop(),
-      _notificationListener.stop(),
-    ]);
-    
+    logDebug('Coordinator', 'Halting Command Dispatcher');
+    _commandDispatcher.stop();
+
+    logDebug('Coordinator', 'Halting Remote Media Service Stream Channels');
+    await _remoteMediaService.stop();
+
+    logDebug('Coordinator', 'Halting Media and Notification subsystems');
+    await _mediaService.stop();
+    await _notificationListener.stop();
+
+    logDebug('Coordinator', 'Halting Battery Monitor Service');
+    _batteryMonitorService.stop();
+
     logDebug('Coordinator', 'All background subsystems safely halted');
   }
 
   void dispose() {
-    logDebug('Coordinator', 'Disposing Coordinator and cleaning stream bindings');
+    logDebug(
+      'Coordinator',
+      'Disposing Coordinator and cleaning stream bindings',
+    );
     _connectionSubscription?.cancel();
     _stopServices();
   }

@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncos_android/features/clipboard/provider/local_clipboard_sender_provider.dart';
 import 'package:syncos_android/features/file_transfer/provider/file_transfer_provider.dart';
+import 'package:syncos_android/features/music/provider/remote_media_provider.dart';
 
 import '../../core/network/domain/i_connection_manager.dart';
 import '../../core/network/provider/connection_provider.dart';
-import '../../features/music/provider/remote_media_state.dart';
 import 'package:syncos_android/features/music/ui/music_player.dart';
 import '../components/dashboard_item.dart';
 import '../../theme/app_theme.dart';
@@ -17,11 +17,10 @@ import 'widgets/dashboard_header.dart';
 import 'package:syncos_android/core/config/app_routes.dart';
 import 'package:syncos_android/core/config/app_router.dart';
 
-final _connectionStatusStreamProvider =
-    StreamProvider<ConnectionStatus>((ref) {
-      final connectionManager = ref.watch(connectionManagerProvider);
-      return connectionManager.connectionStatusStream;
-    });
+final _connectionStatusStreamProvider = StreamProvider<ConnectionStatus>((ref) {
+  final connectionManager = ref.watch(connectionManagerProvider);
+  return connectionManager.connectionStatusStream;
+});
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -31,7 +30,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-
   // Dashboard Items
   late final List<DashboardItem> _items = [
     DashboardItem(
@@ -45,9 +43,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     DashboardItem(
       label: 'Run Command',
       icon: Icons.terminal,
-      onTap: () => {
-        AppRouter.pushRoute(context, AppRoutes.runCommands),
-      },
+      onTap: () => {AppRouter.pushRoute(context, AppRoutes.runCommands)},
     ),
     DashboardItem(
       label: 'Send Clipboard',
@@ -55,21 +51,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       onTap: () {
         final localClipboardSender = ref.read(localClipboardSenderProvider);
         localClipboardSender.sendClipBoardContent();
-      }
+      },
     ),
     DashboardItem(
       label: 'Gamepad',
       icon: Icons.gamepad,
-      onTap: () => {
-        AppRouter.pushRoute(context, AppRoutes.gamepad),
-      }
+      onTap: () => {AppRouter.pushRoute(context, AppRoutes.gamepad)},
     ),
   ];
+
+  late final AppLifecycleListener _lifecycleListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycleListener = AppLifecycleListener(onResume: _initializeMedia);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initializeMedia());
+  }
+
+  void _initializeMedia() {
+    ref.read(remoteMediaServiceProvider).start();
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final connectionStatusAsync = ref.watch(_connectionStatusStreamProvider);
-    final mediaInfo = ref.watch(musicProvider);
 
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
@@ -95,10 +107,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       const Header(),
                       DashboardGrid(items: _items),
                       const SizedBox(height: AppTheme.spacing),
-                      if (mediaInfo.isValid) const MusicPlayerWidget(),
+
+                      Consumer(
+                        builder: (context, ref, child) {
+                          final status = ref
+                              .watch(remoteMediaStreamProvider)
+                              .value;
+                          return status != null
+                              ? const MusicPlayerWidget()
+                              : const SizedBox.shrink();
+                        },
+                      ),
                     ] else ...[
                       StatusDisconnected(),
-                    ]
+                    ],
                   ],
                 );
               },

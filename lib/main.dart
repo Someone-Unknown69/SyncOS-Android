@@ -22,7 +22,8 @@ import 'pages/setup_screen/setup_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/storage/provider/storage_service_provider.dart';
 
-final GlobalKey<ScaffoldMessengerState> snackbarKey = GlobalKey<ScaffoldMessengerState>();
+final GlobalKey<ScaffoldMessengerState> snackbarKey =
+    GlobalKey<ScaffoldMessengerState>();
 
 // Requests battery optimization exemption once. Without this, aggressive OEM
 // devices (Realme/OPPO/Xiaomi) will kill the background service when the screen
@@ -31,19 +32,20 @@ Future<void> _requestBatteryOptimizationExemption() async {
   try {
     const platform = MethodChannel('android_channel');
     await platform.invokeMethod('requestBatteryOptimization');
-  } catch (_) {
-  }
+  } catch (_) {}
 }
+
 Future<void> _ensurePermissions() async {
   const channel = MethodChannel('com.example/permissions');
-  final bool hasAccess = await channel.invokeMethod('checkNotificationListener');
-  
+  final bool hasAccess = await channel.invokeMethod(
+    'checkNotificationListener',
+  );
+
   if (!hasAccess) {
     await channel.invokeMethod('requestNotificationListener');
     await Future.delayed(const Duration(seconds: 2));
   }
 }
-
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -70,9 +72,13 @@ void main() async {
             ref.watch(fileTransferServiceProvider),
           );
         }),
-        connectionManagerProvider.overrideWith((ref) => ProxyConnectionManager()),
+        connectionManagerProvider.overrideWith(
+          (ref) => ProxyConnectionManager(),
+        ),
         serviceCoordinatorProvider.overrideWith((ref) {
-          throw UnimplementedError('The ServiceCoordinator belongs strictly in the background isolate');
+          throw UnimplementedError(
+            'The ServiceCoordinator belongs strictly in the background isolate',
+          );
         }),
       ],
       child: const RemoteControllerApp(),
@@ -80,12 +86,12 @@ void main() async {
   );
 }
 
-
 class RemoteControllerApp extends ConsumerStatefulWidget {
   const RemoteControllerApp({super.key});
 
   @override
-  ConsumerState<RemoteControllerApp> createState() => _RemoteControllerAppState();
+  ConsumerState<RemoteControllerApp> createState() =>
+      _RemoteControllerAppState();
 }
 
 class _RemoteControllerAppState extends ConsumerState<RemoteControllerApp> {
@@ -103,7 +109,8 @@ class _RemoteControllerAppState extends ConsumerState<RemoteControllerApp> {
 
     Widget homeWidget = paired.when(
       data: (hasPaired) => hasPaired ? const MainScreen() : const SetupScreen(),
-      loading: () => const MainScreen(),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (_, _) => const SetupScreen(),
     );
 
@@ -120,3 +127,4 @@ class _RemoteControllerAppState extends ConsumerState<RemoteControllerApp> {
     );
   }
 }
+

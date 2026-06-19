@@ -7,14 +7,17 @@ import 'package:syncos_android/core/handler/domain/i_command_dispatcher.dart';
 import 'package:syncos_android/core/misc/app_logging.dart';
 import 'package:syncos_android/core/network/domain/i_connection_manager.dart';
 import 'package:syncos_android/core/utilities/domain/i_ringtone_service.dart';
+import 'package:syncos_android/features/music/data/remote_media_service.dart';
 import 'package:syncos_android/features/music/domain/i_local_media_sender.dart';
+import 'package:syncos_android/features/music/domain/models/media_info.dart';
 
 class CommandDispatcher implements ICommandDispatcher {
   final IConnectionManager _connectionManager;
 
   // Services that strictly run in background and have no intention to use UI
   final IRingtoneService _ringtoneService;
-  final IMediaService _mediaService;            // Only for control commands
+  final IMediaService _mediaService; // Only for control commands
+  final RemoteMediaService _remoteMediaService;
 
   StreamSubscription<String>? _rawMessageSubscription;
   bool _isStarted = false;
@@ -23,6 +26,7 @@ class CommandDispatcher implements ICommandDispatcher {
     this._connectionManager,
     this._ringtoneService,
     this._mediaService,
+    this._remoteMediaService,
   ) {
     logDebug('Command Dispatcher', 'Initialized');
   }
@@ -31,13 +35,18 @@ class CommandDispatcher implements ICommandDispatcher {
   void start() {
     if (_isStarted) return;
     _isStarted = true;
-    logDebug('Command Dispatcher', 'Service started and listening for network messages');
+    logDebug(
+      'Command Dispatcher',
+      'Service started and listening for network messages',
+    );
 
-    _rawMessageSubscription = _connectionManager.rawMessageStream.listen((rawMessage) {
+    _rawMessageSubscription = _connectionManager.rawMessageStream.listen((
+      rawMessage,
+    ) {
       try {
         final Map<String, dynamic> data = jsonDecode(rawMessage);
         logDebug('Command Dispatcher', 'Recieved : $data');
-        
+
         // Entry point for background running services
         _handleOperation(data);
 
@@ -65,6 +74,8 @@ class CommandDispatcher implements ICommandDispatcher {
       case 'music':
         if (action == 'control') {
           _mediaService.sendControlCommand(args);
+        } else if (action == 'update_metadata') {
+          _remoteMediaService.updateMedia(MediaInfo.fromMap(args));
         }
         break;
       default:

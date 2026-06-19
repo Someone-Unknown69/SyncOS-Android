@@ -8,17 +8,76 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:syncos_android/features/music/domain/models/media_info.dart';
+import 'package:syncos_android/features/music/provider/remote_media_provider.dart';
 
-import '../../../core/network/provider/connection_provider.dart';
-import '../provider/remote_media_state.dart';
 import '../../../theme/app_theme.dart';
 
-// -------------------------------      Music Widget     -------------------------------------------
+// ======================== PROVIDERS ========================
+
+final decodedImageProvider = FutureProvider<Uint8List?>((ref) async {
+  final imagePath = ref.watch(
+    remoteMediaStreamProvider.select(
+      (asyncValue) => asyncValue.maybeWhen(
+        data: (data) => data.albumArtBase64,
+        orElse: () => 'N/A',
+      ),
+    ),
+  );
+
+  if (imagePath == 'N/A' || imagePath.length <= 50) {
+    return null;
+  }
+
+  try {
+    Uint8List bytes = base64Decode(imagePath);
+    try {
+      bytes = Uint8List.fromList(gzip.decode(bytes));
+    } catch (_) {}
+    return bytes;
+  } catch (e) {
+    debugPrint("Error decoding base64 image: $e");
+    return null;
+  }
+});
+
+final dynamicColorSchemeProvider = FutureProvider<ColorScheme>((ref) async {
+  final imageAsync = ref.watch(decodedImageProvider);
+
+  final imageBytes = await imageAsync.when(
+    loading: () async => null,
+    error: (err, stack) async => null,
+    data: (bytes) async => bytes,
+  );
+
+  ImageProvider provider;
+  if (imageBytes != null) {
+    provider = MemoryImage(imageBytes);
+  } else {
+    provider = const AssetImage('assets/images/album2.png');
+  }
+
+  return MusicThemeService.generate(provider, Brightness.dark);
+});
+
+final statusStringProvider = Provider<String>((ref) {
+  final info = ref.watch(remoteMediaStreamProvider).value ?? MediaInfo.empty;
+  return info.status ? 'Playing' : 'Paused';
+});
+
+final currentTrackProvider = Provider<MediaInfo>((ref) {
+  return ref.watch(remoteMediaStreamProvider).value ?? MediaInfo.empty;
+});
+
+// ======================== THEME SERVICE ========================
 
 class MusicThemeService {
   /// Generates a Material 3 ColorScheme directly from an image.
   /// This uses the native Flutter algorithm to ensure harmonious tones.
-  static Future<ColorScheme> generate(ImageProvider image, Brightness brightness) async {
+  static Future<ColorScheme> generate(
+    ImageProvider image,
+    Brightness brightness,
+  ) async {
     try {
       return await ColorScheme.fromImageProvider(
         provider: image,
@@ -42,177 +101,137 @@ class MusicPlayerWidget extends ConsumerStatefulWidget {
 }
 
 class _MusicPlayerWidgetState extends ConsumerState<MusicPlayerWidget> {
-  ColorScheme? _dynamicScheme;
-  String _lastImagePath = '';
-
-  @override
-  void initState() {
-    super.initState();
-    final info = ref.read(musicProvider);
-    _lastImagePath = info.albumArtBase64;
-    _updateTheme(info.albumArtBase64);
-  }
-
-  Future<void> _updateTheme(String imagePath) async {
-    ImageProvider provider;
-    if (imagePath != 'N/A' && imagePath.length > 50) {
-      try {
-        Uint8List bytes = base64Decode(imagePath);
-        try {
-          bytes = Uint8List.fromList(gzip.decode(bytes));
-        } catch (_) {} // ignore if not gzipped
-        provider = MemoryImage(bytes);
-      } catch (e) {
-        provider = const AssetImage('assets/images/album2.png');
-      }
-    } else {
-      provider = const AssetImage('assets/images/album2.png');
-    }
-
-    final scheme = await MusicThemeService.generate(provider, Brightness.dark);
-    if (mounted) {
-      setState(() => _dynamicScheme = scheme);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final info = ref.watch(musicProvider);
-    final manager = ref.read(connectionManagerProvider);
+    final colorSchemeAsync = ref.watch(dynamicColorSchemeProvider);
+    final info = ref.watch(currentTrackProvider);
+    final imageAsync = ref.watch(decodedImageProvider);
+    final controls = ref.watch(remoteMediaServiceProvider);
 
-    // Detect album art change and refresh theme
-    if (info.albumArtBase64 != _lastImagePath) {
-      _lastImagePath = info.albumArtBase64;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _updateTheme(info.albumArtBase64));
-    }
+    final colorScheme =
+        colorSchemeAsync.whenData((scheme) => scheme).value ??
+        ColorScheme.fromSeed(
+          seedColor: const Color(0xFF6750A4),
+          brightness: Brightness.dark,
+        );
 
-    Uint8List? imageBytes;
-    final imagePath = info.albumArtBase64;
-    if (imagePath != 'N/A' && imagePath.length > 50) {
-      try {
-        imageBytes = base64Decode(imagePath);
-        try {
-          imageBytes = Uint8List.fromList(gzip.decode(imageBytes));
-        } catch (_) {}
-      } catch (e) {
-        debugPrint("Error decoding base64 image: $e");
-      }
-    }
-
-    final statusStr = info.status ? 'Playing' : 'Paused';
-    final theme = _dynamicScheme ?? Theme.of(context).colorScheme;
+    final imageBytes = imageAsync.whenData((bytes) => bytes).value;
+    final statusStr = ref.watch(statusStringProvider);
+    final theme = colorScheme;
 
     return Theme(
       data: ThemeData(useMaterial3: true, colorScheme: theme),
-      child: Builder(builder: (context) {
-        final localTheme = Theme.of(context).colorScheme;
+      child: Builder(
+        builder: (context) {
+          final localTheme = Theme.of(context).colorScheme;
 
-        return Container(
-          margin: const EdgeInsets.all(AppTheme.spacing / 2),
-          height: 200,
-          clipBehavior: Clip.antiAlias,
+          return Container(
+            margin: const EdgeInsets.all(AppTheme.spacing / 2),
+            height: 200,
+            clipBehavior: Clip.antiAlias,
 
-          decoration: BoxDecoration(
-            color: localTheme.surfaceContainer,
-            borderRadius: BorderRadius.circular(AppTheme.musicPlayerRadius),
-          ),
-          
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: imageBytes != null
-                  ? SizedBox.expand(
-                      child: Image.memory(
-                        imageBytes, 
-                        fit: BoxFit.cover,
-                        gaplessPlayback: true,
+            decoration: BoxDecoration(
+              color: localTheme.surfaceContainer,
+              borderRadius: BorderRadius.circular(AppTheme.musicPlayerRadius),
+            ),
+
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: imageBytes != null
+                      ? SizedBox.expand(
+                          child: Image.memory(
+                            imageBytes,
+                            fit: BoxFit.cover,
+                            gaplessPlayback: true,
+                          ),
+                        )
+                      : Container(color: localTheme.surfaceContainer),
+                ),
+
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          localTheme.surface.withValues(alpha: 1.0),
+                          localTheme.scrim.withValues(alpha: 0.0),
+                        ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
                       ),
-                    )
-                  : Container(color: localTheme.surfaceContainer),
-              ),
-
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        localTheme.surface.withValues(alpha: 1.0),
-                        localTheme.scrim.withValues(alpha: 0.0),
-                      ],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
                     ),
                   ),
                 ),
-              ),
 
-              // Layout Content
-              Padding(
-                padding: const EdgeInsets.all(AppTheme.padding),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(child: 
-                          _TrackInfo(
-                            name: info.title,
-                            artist: info.artist,
-                            theme: localTheme,
-                          ),
-                        ),
-
-                        // Play/Pause button
-                        IconButton(
-                          onPressed: () {
-                            manager.send('music', 'control', {'method': 'play_pause'});
-                          },
-                          icon: Icon(
-                            statusStr == 'Playing'
-                                ? Icons.pause_outlined
-                                : Icons.play_arrow_outlined,
-                            size: 25,
-                          ),
-                          color: theme.primaryContainer,
-                          style: IconButton.styleFrom(
-                            backgroundColor: theme.onPrimaryContainer,
-                            shape: const CircleBorder(),
-                            padding: const EdgeInsets.all(AppTheme.padding),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(child: 
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(0, 0, 8, 0),
-                            child: MusicProgressSlider(
-                              theme: theme,
-                              duration: info.duration.toDouble(),
-                              position: info.position.toDouble(),
-                              status: statusStr,
+                // Layout Content
+                Padding(
+                  padding: const EdgeInsets.all(AppTheme.padding),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: _TrackInfo(
+                              name: info.title,
+                              artist: info.artist,
+                              theme: localTheme,
                             ),
                           ),
-                        ),
-                        
-                        _ControlButtons(
-                          theme: localTheme,
-                          onNext: () => manager.send('music', 'control', {'method': 'next'}),
-                          onPrev: () => manager.send('music', 'control', {'method': 'previous'}),
-                        ),
-                      ],
-                    ),
-                  ],
+
+                          // Play/Pause button
+                          IconButton(
+                            onPressed: () {
+                              controls.playPauseToggle();
+                            },
+                            icon: Icon(
+                              statusStr == 'Playing'
+                                  ? Icons.pause_outlined
+                                  : Icons.play_arrow_outlined,
+                              size: 25,
+                            ),
+                            color: theme.primaryContainer,
+                            style: IconButton.styleFrom(
+                              backgroundColor: theme.onPrimaryContainer,
+                              shape: const CircleBorder(),
+                              padding: const EdgeInsets.all(AppTheme.padding),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(0, 0, 8, 0),
+                              child: MusicProgressSlider(
+                                theme: theme,
+                                duration: info.duration.toDouble(),
+                                position: info.position.toDouble(),
+                                status: statusStr,
+                              ),
+                            ),
+                          ),
+
+                          _ControlButtons(
+                            theme: localTheme,
+                            onNext: () => controls.next(),
+                            onPrev: () => controls.previous(),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
-      }),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -297,7 +316,6 @@ class _ControlButtons extends StatelessWidget {
   }
 }
 
-
 // ---------------------------     Progress Slider     ---------------------------------------------
 
 class MusicProgressSlider extends ConsumerStatefulWidget {
@@ -315,11 +333,12 @@ class MusicProgressSlider extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<MusicProgressSlider> createState() => _MusicProgressSliderState();
+  ConsumerState<MusicProgressSlider> createState() =>
+      _MusicProgressSliderState();
 }
 
 class _MusicProgressSliderState extends ConsumerState<MusicProgressSlider>
-  with TickerProviderStateMixin {
+    with TickerProviderStateMixin {
   double? _dragValue;
   late double _localPosition;
   Timer? _timer;
@@ -331,8 +350,14 @@ class _MusicProgressSliderState extends ConsumerState<MusicProgressSlider>
   void initState() {
     super.initState();
     _localPosition = widget.position;
-    _waveController = AnimationController(vsync: this, duration: const Duration(seconds: 2));
-    _flattenController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+    _waveController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
+    _flattenController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
     if (widget.status == 'Playing') {
       _flattenController.value = 1.0;
       _waveController.repeat();
@@ -380,21 +405,22 @@ class _MusicProgressSliderState extends ConsumerState<MusicProgressSlider>
 
   @override
   Widget build(BuildContext context) {
-    final manager = ref.read(connectionManagerProvider);
-    double progress = widget.duration != 0 ? _localPosition / widget.duration : 0.0;
-    
+    final controls = ref.watch(remoteMediaServiceProvider);
+    double progress = widget.duration != 0
+        ? _localPosition / widget.duration
+        : 0.0;
+
     return GestureDetector(
-      onHorizontalDragUpdate: (d) => setState(() => _dragValue = (d.localPosition.dx / context.size!.width).clamp(0.0, 1.0)),
+      onHorizontalDragUpdate: (d) => setState(
+        () => _dragValue = (d.localPosition.dx / context.size!.width).clamp(
+          0.0,
+          1.0,
+        ),
+      ),
       onHorizontalDragEnd: (d) {
         if (_dragValue != null) {
-          manager.send(
-            "music",
-            "control",
-            {
-              "method": 'seek',
-              "position": (_dragValue! * widget.duration).toInt(),
-            },
-          );
+          final pos = (_dragValue! * widget.duration).toInt();
+          controls.sendSeek(pos);
           setState(() => _localPosition = _dragValue! * widget.duration);
         }
         setState(() => _dragValue = null);
@@ -423,13 +449,17 @@ class _MusicProgressSliderState extends ConsumerState<MusicProgressSlider>
   }
 }
 
-
 // Modify this to change the squiggly player style
 class SquigglePainter extends CustomPainter {
   final double progress, phase, amplitude;
   final Color color;
 
-  SquigglePainter({required this.progress, required this.phase, required this.amplitude, required this.color});
+  SquigglePainter({
+    required this.progress,
+    required this.phase,
+    required this.amplitude,
+    required this.color,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -442,7 +472,11 @@ class SquigglePainter extends CustomPainter {
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round;
     if (thumbX < size.width) {
-      canvas.drawLine(Offset(thumbX, centerY), Offset(size.width, centerY), inactivePaint);
+      canvas.drawLine(
+        Offset(thumbX, centerY),
+        Offset(size.width, centerY),
+        inactivePaint,
+      );
     }
 
     // Active track
@@ -457,7 +491,8 @@ class SquigglePainter extends CustomPainter {
       final activePath = Path();
       activePath.moveTo(0, centerY + amplitude * sin(phase));
       for (double x = 0.8; x <= thumbX; x += 0.8) {
-        final double y = centerY + amplitude * sin((x / waveLength) * 2 * pi + phase);
+        final double y =
+            centerY + amplitude * sin((x / waveLength) * 2 * pi + phase);
         activePath.lineTo(x, y);
       }
       canvas.drawPath(activePath, activePaint);
@@ -467,7 +502,9 @@ class SquigglePainter extends CustomPainter {
     canvas.drawCircle(
       Offset(thumbX, centerY),
       7.0,
-      Paint()..color = color..style = PaintingStyle.fill,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.fill,
     );
   }
 

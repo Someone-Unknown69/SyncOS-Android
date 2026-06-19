@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncos_android/core/background/background_event_bus.dart';
+import 'package:syncos_android/core/background/background_service_provider.dart';
 import 'package:syncos_android/core/handler/provider/service_coordinator_provider.dart';
 import 'package:syncos_android/core/network/domain/i_connection_manager.dart';
 import 'package:syncos_android/core/network/provider/connection_provider.dart';
@@ -26,16 +27,22 @@ Future<void> initalizeBackgroundServices() async {
     importance: Importance.low, // importance must be at low or higher level
   );
 
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
 
   if (Platform.isAndroid) {
-    const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/launcher_icon');
-    const InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
-    await flutterLocalNotificationsPlugin.initialize(settings: initializationSettings);
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/launcher_icon');
+    const InitializationSettings initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
+    await flutterLocalNotificationsPlugin.initialize(
+      settings: initializationSettings,
+    );
 
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(channel);
   }
 
@@ -50,10 +57,7 @@ Future<void> initalizeBackgroundServices() async {
       foregroundServiceNotificationId: 888,
       foregroundServiceTypes: [AndroidForegroundType.dataSync],
     ),
-    iosConfiguration: IosConfiguration(
-      autoStart: true,
-      onForeground: onStart,
-    ),
+    iosConfiguration: IosConfiguration(autoStart: true, onForeground: onStart),
   );
 }
 
@@ -88,7 +92,7 @@ void onStart(ServiceInstance service) async {
         final storage = ref.watch(storageServiceProvider);
         return SocketConnectionManager(storage);
       }),
-      
+      backgroundServiceProvider.overrideWithValue(service),
     ],
   );
 
@@ -96,7 +100,7 @@ void onStart(ServiceInstance service) async {
   final storage = container.read(storageServiceProvider);
 
   final coordinator = container.read(serviceCoordinatorProvider);
-  
+
   // Forward status changes to UI
   connectionManager.connectionStatusStream.listen((status) {
     service.invoke('connection_status', {
@@ -108,8 +112,9 @@ void onStart(ServiceInstance service) async {
     if (service is AndroidServiceInstance) {
       service.setForegroundNotificationInfo(
         title: "",
-        content: (status == ConnectionStatus.connected) ? 
-          "Connected to remote device" : "Not connected to any device"
+        content: (status == ConnectionStatus.connected)
+            ? "Connected to remote device"
+            : "Not connected to any device",
       );
     }
   });
@@ -118,16 +123,14 @@ void onStart(ServiceInstance service) async {
   connectionManager.rawMessageStream.listen((msg) {
     service.invoke('raw_message', {'message': msg});
   });
-  
+
   // Forward pairing events to UI
   storage.pairingStream.listen((isPaired) {
     service.invoke('paired_status', {'isPaired': isPaired});
   });
 
   connectionManager.nearbyDevicesStream.listen((data) {
-    service.invoke('device_discovery', {
-      'config': data,
-    });
+    service.invoke('device_discovery', {'config': data});
   });
 
   service.on('start').listen((event) {
@@ -137,13 +140,17 @@ void onStart(ServiceInstance service) async {
   // Listen to UI commands
   service.on('connect').listen((event) {
     if (event != null && event['config'] != null) {
-      connectionManager.connect(ConnectionConfig.fromMap(Map<String, dynamic>.from(event['config'])));
+      connectionManager.connect(
+        ConnectionConfig.fromMap(Map<String, dynamic>.from(event['config'])),
+      );
     }
   });
 
   service.on('pair').listen((event) {
     if (event != null && event['config'] != null) {
-      connectionManager.pair(ConnectionConfig.fromMap(Map<String, dynamic>.from(event['config'])));
+      connectionManager.pair(
+        ConnectionConfig.fromMap(Map<String, dynamic>.from(event['config'])),
+      );
     }
   });
 
@@ -167,7 +174,7 @@ void onStart(ServiceInstance service) async {
   service.on('stopDiscovery').listen((event) {
     connectionManager.stopDiscovery();
   });
-  
+
   service.on('request_initial_state').listen((event) {
     service.invoke('connection_status', {
       'status': connectionManager.status.toString(),
@@ -183,10 +190,7 @@ void onStart(ServiceInstance service) async {
     container.dispose();
   });
 
-
   Timer.periodic(const Duration(seconds: 30), (timer) {
     logDebug('Daemon', 'Running');
   });
 }
-
-

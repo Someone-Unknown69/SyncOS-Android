@@ -1,9 +1,11 @@
 // Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:syncos_android/core/background/background_service_provider.dart';
 import 'package:syncos_android/core/network/provider/connection_provider.dart';
 import 'package:syncos_android/features/battery/provider/local_battery_sender_provider.dart';
 import 'package:syncos_android/features/music/provider/local_media_sender_provider.dart';
+import 'package:syncos_android/features/music/provider/remote_media_provider.dart';
 import 'package:syncos_android/features/notification_sender/provider/local_notification_sender_provider.dart';
 import '../data/service_coordinator.dart';
 import 'command_dispatcher_provider.dart';
@@ -14,6 +16,8 @@ final serviceCoordinatorProvider = Provider<ServiceCoordinator>((ref) {
   final mediaService = ref.watch(mediaServiceProvider);
   final notificationListener = ref.watch(notificationListeningProvider);
   final commandDispatcher = ref.watch(commandDispatcherProvider);
+  final remoteMediaService = ref.watch(remoteMediaServiceProvider);
+  final backgroundService = ref.watch(backgroundServiceProvider);
 
   final coordinator = ServiceCoordinator(
     connectionManager: connectionManager,
@@ -21,6 +25,8 @@ final serviceCoordinatorProvider = Provider<ServiceCoordinator>((ref) {
     mediaService: mediaService,
     notificationListener: notificationListener,
     commandDispatcher: commandDispatcher,
+    remoteMediaService: remoteMediaService,
+    service: backgroundService,
   );
 
   ref.onDispose(() => coordinator.dispose());
