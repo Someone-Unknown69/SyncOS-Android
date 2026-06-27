@@ -71,6 +71,10 @@ android {
 }
 
 dependencies {
+    // MediaSessionCompat, MediaMetadataCompat, PlaybackStateCompat
+    // and androidx.media.app.NotificationCompat.MediaStyle all live here
+    implementation("androidx.media:media:1.7.0")
+
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.mockito:mockito-core:5.0.0")
 }

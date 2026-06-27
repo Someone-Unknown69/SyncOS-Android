@@ -131,7 +131,7 @@ class MediaInfo {
   }
 
   MediaInfo mergeWith(MediaInfo other) {
-    if (other == MediaInfo.empty) return this;
+    if (!other.isValid || other == MediaInfo.empty) return other;
 
     bool isStringValid(String? val) =>
         val != null &&

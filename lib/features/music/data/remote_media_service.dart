@@ -99,6 +99,8 @@ class RemoteMediaService implements IRemoteMediaState {
   }
 
   void _sendSongChange(String method) {
+    // TODO : Register the native changes here and disable the reconfirmation of control updates
+
     if (isUiInstance) {
       FlutterBackgroundService().invoke('media_control_command', {
         'method': method,
@@ -109,12 +111,20 @@ class RemoteMediaService implements IRemoteMediaState {
   }
 
   void _sendSeekChange(int position) {
+    // Immediately update local cache so the UI and Android Media Notification 
+    // seekbars update instantly on both isolates
+    final updatedMetadata = _mediaCache.copyWith(
+      isValid: _mediaCache.isValid,
+      position: position,
+    );
+    updateMedia(updatedMetadata);
+
     if (isUiInstance) {
       FlutterBackgroundService().invoke('media_control_command', {
         'position': position,
       });
     } else {
-      _connectionManager.send('music', 'control', {'position': position});
+      _connectionManager.send('music', 'control', {'method': 'seek', 'position': position});
     }
   }
 

@@ -110,10 +110,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                       Consumer(
                         builder: (context, ref, child) {
-                          final status = ref
+                          final info = ref
                               .watch(remoteMediaStreamProvider)
                               .value;
-                          return status != null
+                          return (info != null && info.isValid)
                               ? const MusicPlayerWidget()
                               : const SizedBox.shrink();
                         },

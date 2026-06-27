@@ -18,6 +18,7 @@ class SyncosNativePlugin : FlutterPlugin {
         // UI engine's registration is inert (onListen never fires on it).
         private var musicDetectionHandler: MusicDetectionHandler? = null
         private var notificationHandler: NotificationHandler? = null
+        private var mediaNotificationHandler: MediaNotificationHandler? = null
     }
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
@@ -51,6 +52,11 @@ class SyncosNativePlugin : FlutterPlugin {
             notificationHandler = NotificationHandler(context)
         }
         notificationHandler?.configureFlutterEngine(engine)
+
+        if (mediaNotificationHandler == null) {
+            mediaNotificationHandler = MediaNotificationHandler(context)
+        }
+        mediaNotificationHandler?.configureFlutterEngine(engine)
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {

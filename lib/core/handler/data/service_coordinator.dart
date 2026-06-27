@@ -105,7 +105,7 @@ class ServiceCoordinator {
     _commandDispatcher.stop();
 
     logDebug('Coordinator', 'Halting Media Notification Service');
-    await _mediaNotification.start();
+    await _mediaNotification.stop();
 
     logDebug('Coordinator', 'Halting Remote Media Service Stream Channels');
     await _remoteMediaService.stop();
