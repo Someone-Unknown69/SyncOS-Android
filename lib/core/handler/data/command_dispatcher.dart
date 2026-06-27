@@ -62,7 +62,7 @@ class CommandDispatcher implements ICommandDispatcher {
     });
   }
 
-  void _handleOperation(Map<String, dynamic> data) {
+  void _handleOperation(Map<String, dynamic> data) async {
     final operation = data['op'];
     final action = data['action'];
     final args = data['args'] as Map<String, dynamic>;
@@ -75,7 +75,7 @@ class CommandDispatcher implements ICommandDispatcher {
         if (action == 'control') {
           _mediaService.sendControlCommand(args);
         } else if (action == 'update_metadata') {
-          _remoteMediaService.updateMedia(MediaInfo.fromMap(args));
+          _remoteMediaService.updateMedia(await MediaInfo.fromPayload(args));
         }
         break;
       default:

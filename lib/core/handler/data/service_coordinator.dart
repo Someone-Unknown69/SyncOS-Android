@@ -5,6 +5,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:syncos_android/core/handler/domain/i_command_dispatcher.dart';
 import 'package:syncos_android/core/network/domain/i_connection_manager.dart';
 import 'package:syncos_android/core/misc/app_logging.dart';
+import 'package:syncos_android/core/notification/domain/i_media_notification.dart';
 import 'package:syncos_android/features/battery/domain/i_local_battery_sender.dart';
 import 'package:syncos_android/features/music/data/remote_media_service.dart';
 import 'package:syncos_android/features/music/domain/i_local_media_sender.dart';
@@ -17,6 +18,7 @@ class ServiceCoordinator {
   final INotificationListener _notificationListener;
   final ICommandDispatcher _commandDispatcher;
   final RemoteMediaService _remoteMediaService;
+  final IMediaNotification _mediaNotification;
   final ServiceInstance _service;
 
   bool running = false;
@@ -30,12 +32,14 @@ class ServiceCoordinator {
     required INotificationListener notificationListener,
     required ICommandDispatcher commandDispatcher,
     required RemoteMediaService remoteMediaService,
+    required IMediaNotification mediaNotification,
     required ServiceInstance service,
   }) : _notificationListener = notificationListener,
        _commandDispatcher = commandDispatcher,
        _connectionManager = connectionManager,
        _batteryMonitorService = batteryMonitorService,
        _remoteMediaService = remoteMediaService,
+       _mediaNotification = mediaNotification,
        _service = service,
        _mediaService = mediaService {
     _init();
@@ -70,19 +74,22 @@ class ServiceCoordinator {
       'Beginning sequential service activation lifecycle',
     );
 
-    logDebug('Coordinator', 'Activating Battery Monitor Service [1/4]');
+    logDebug('Coordinator', 'Activating Battery Monitor Service');
     await _batteryMonitorService.start();
 
-    logDebug('Coordinator', 'Activating Media Service [2/4]');
+    logDebug('Coordinator', 'Activating Media Service');
     await _mediaService.start();
 
-    logDebug('Coordinator', 'Activating Notification Listener [3/4]');
+    logDebug('Coordinator', 'Activating Notification Listener');
     await _notificationListener.start();
 
     logDebug('Coordinator', 'Activating remote media service');
     await _remoteMediaService.start(backgroundService: _service);
 
-    logDebug('Coordinator', 'Activating Command Dispatcher [4/4]');
+    logDebug('Coordinator', 'Activating Media Service');
+    await _mediaNotification.start();
+
+    logDebug('Coordinator', 'Activating Command Dispatcher');
     _commandDispatcher.start();
 
     logDebug('Coordinator', 'All background subsystems successfully running');
@@ -96,6 +103,9 @@ class ServiceCoordinator {
 
     logDebug('Coordinator', 'Halting Command Dispatcher');
     _commandDispatcher.stop();
+
+    logDebug('Coordinator', 'Halting Media Notification Service');
+    await _mediaNotification.start();
 
     logDebug('Coordinator', 'Halting Remote Media Service Stream Channels');
     await _remoteMediaService.stop();

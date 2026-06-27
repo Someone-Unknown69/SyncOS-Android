@@ -1,209 +1,212 @@
-/// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
+// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
 
 import 'package:flutter/foundation.dart';
+import 'package:syncos_android/core/misc/app_logging.dart';
+import 'package:syncos_android/core/misc/base64_image_converter.dart';
 
 @immutable
 class MediaInfo {
-  final String title;
-  final String artist;
-  final String album;
-  final bool status;
-  final int position;
-  final int duration;
-  final String albumArtBase64;
-
-  final Set<String> _definedFields;
+  final bool isValid;
+  final String? title;
+  final String? artist;
+  final String? album;
+  final bool? status;
+  final int? position;
+  final int? duration;
+  final Uri? albumArtUri;
 
   const MediaInfo({
-    required this.title,
-    required this.artist,
-    required this.album,
-    required this.status,
-    required this.position,
-    required this.duration,
-    required this.albumArtBase64,
-    Set<String>? definedFields,
-  }) : _definedFields =
-           definedFields ??
-           const {
-             'title',
-             'artist',
-             'album',
-             'status',
-             'position',
-             'duration',
-             'albumArtBase64',
-           };
+    required this.isValid,
+    this.title,
+    this.artist,
+    this.album,
+    this.status,
+    this.position,
+    this.duration,
+    this.albumArtUri,
+  });
 
-  factory MediaInfo.fromMap(Map<String, dynamic> map) {
-    int toInt(dynamic value) {
-      if (value == null) return 0;
-      if (value is int) return value;
-      if (value is double) return value.toInt();
-      if (value is String) return int.tryParse(value) ?? 0;
-      return 0;
-    }
+  String get identity {
+    final trackTitle = (title ?? 'unknown').trim().toLowerCase();
+    final trackArtist = (artist ?? 'unknown artist').trim().toLowerCase();
 
-    final trackedFields = <String>{};
-    if (map.containsKey('title') && map['title'] != null)
-      trackedFields.add('title');
-    if (map.containsKey('artist') && map['artist'] != null)
-      trackedFields.add('artist');
-    if (map.containsKey('album') && map['album'] != null)
-      trackedFields.add('album');
-    if (map.containsKey('status') || map.containsKey('isPlaying'))
-      trackedFields.add('status');
-    if (map.containsKey('position') || map.containsKey('currentPosition'))
-      trackedFields.add('position');
-    if (map.containsKey('duration')) trackedFields.add('duration');
-    if (map.containsKey('albumArt') || map.containsKey('albumArtBase64'))
-      trackedFields.add('albumArtBase64');
+    return '$trackTitle :: $trackArtist';
+  }
+
+  bool get isCorrupt {
+    return isValid &&
+        (title == null || title!.trim().isEmpty) &&
+        (artist == null || artist!.trim().isEmpty) &&
+        (status == null) &&
+        (position == null || position == 0) &&
+        (duration == null || duration == 0) &&
+        albumArtUri == null;
+  }
+
+  bool get isEmpty =>
+      !isValid &&
+      (title == null || title!.isEmpty) &&
+      (artist == null || artist!.isEmpty) &&
+      (position == null || position == 0) &&
+      (duration == null || duration == 0);
+
+  static Future<MediaInfo> fromPayload(Map<String, dynamic> map) async {
+    final String? artData = map['albumArt'] as String?;
 
     return MediaInfo(
-      title: map['title'] ?? 'Unknown',
-      artist: map['artist'] ?? 'Unknown Artist',
-      album: map['album'] ?? 'Unknown',
-      status:
-          map['status'] == 'Playing' ||
-          map['status'] == true ||
-          map['isPlaying'] == true,
-      position: toInt(map['position'] ?? map['currentPosition']),
-      duration: toInt(map['duration']),
-      albumArtBase64: map['albumArt'] ?? map['albumArtBase64'] ?? '',
-      definedFields: trackedFields,
+      isValid: (map['isValid'] as bool?) ?? false,
+      title: map['title'] as String?,
+      artist: map['artist'] as String?,
+      album: map['album'] as String?,
+      status: map['status'] as bool?,
+      position: map['position'] as int?,
+      duration: map['duration'] as int?,
+      albumArtUri: artData != null ? await base64ToTmpFile(artData) : null,
     );
   }
 
+  static MediaInfo fromMap(Map<String, dynamic> map) {
+    int? toInt(dynamic value) {
+      if (value == null) return null;
+      if (value is int) return value;
+      if (value is double) return value.toInt();
+      if (value is String) return int.tryParse(value);
+      return null;
+    }
+
+    Uri? parseUri(dynamic value) {
+      if (value == null) return null;
+      if (value is Uri) return value;
+      if (value is String && value.isNotEmpty && value != 'N/A') {
+        return Uri.tryParse(value);
+      }
+      return null;
+    }
+
+    return MediaInfo(
+      isValid: map['isValid'] as bool,
+      title: map['title'] as String?,
+      artist: map['artist'] as String?,
+      album: map['album'] as String?,
+      status: map['status'] as bool?,
+      position: toInt(map['position']),
+      duration: toInt(map['duration']),
+      albumArtUri: parseUri(map['albumArtUri']),
+    );
+  }
+
+  Future<Map<String, dynamic>> toPayload() async {
+    String? base64Result;
+    if (albumArtUri != null) {
+      try {
+        base64Result = await fileToBase64(albumArtUri!);
+      } catch (e) {
+        logDebug('MediaInfo', 'Error encoding file to base64 in toMap: $e');
+      }
+    }
+
+    return {
+      'isValid': isValid,
+      if (title != null) 'title': title,
+      if (artist != null) 'artist': artist,
+      if (album != null) 'album': album,
+      if (status != null) 'status': status,
+      if (position != null) 'position': position,
+      if (duration != null) 'duration': duration,
+      'albumArt': ?base64Result,
+    };
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'isValid': isValid,
+      if (title != null) 'title': title,
+      if (artist != null) 'artist': artist,
+      if (album != null) 'album': album,
+      if (status != null) 'status': status,
+      if (position != null) 'position': position,
+      if (duration != null) 'duration': duration,
+      if (albumArtUri != null) 'albumArtUri': albumArtUri.toString(),
+    };
+  }
+
   MediaInfo mergeWith(MediaInfo other) {
-    if (other == MediaInfo.empty || other._definedFields.isEmpty) {
+    if (other == MediaInfo.empty) return this;
+
+    bool isStringValid(String? val) =>
+        val != null &&
+        val.trim().isNotEmpty &&
+        val.toLowerCase() != 'unknown' &&
+        val.toLowerCase() != 'unknown artist';
+
+    return MediaInfo(
+      isValid: other.isValid,
+      title: isStringValid(other.title) ? other.title : title,
+      artist: isStringValid(other.artist) ? other.artist : artist,
+      album: isStringValid(other.album) ? other.album : album,
+
+      status: other.status ?? status,
+      position: other.position ?? position,
+
+      duration: (other.duration != null && other.duration! > 0)
+          ? other.duration
+          : duration,
+
+      albumArtUri: (other.albumArtUri != null)
+          ? other.albumArtUri
+          : albumArtUri,
+    );
+  }
+
+  MediaInfo calculateDeltaObject(MediaInfo oldState) {
+    if (identity != oldState.identity) {
       return this;
     }
 
     return MediaInfo(
-      title:
-          (other._definedFields.contains('title') &&
-              other.title.isNotEmpty &&
-              other.title != 'Unknown')
-          ? other.title
-          : title,
-
-      artist:
-          (other._definedFields.contains('artist') &&
-              other.artist.isNotEmpty &&
-              other.artist != 'Unknown Artist')
-          ? other.artist
-          : artist,
-
-      album:
-          (other._definedFields.contains('album') &&
-              other.album.isNotEmpty &&
-              other.album != 'Unknown')
-          ? other.album
-          : album,
-
-      status: other._definedFields.contains('status') ? other.status : status,
-
-      position: other._definedFields.contains('position')
-          ? other.position
-          : position,
-
-      duration:
-          (other._definedFields.contains('duration') && other.duration > 0)
-          ? other.duration
-          : duration,
-
-      albumArtBase64:
-          (other._definedFields.contains('albumArtBase64') &&
-              other.albumArtBase64.isNotEmpty)
-          ? other.albumArtBase64
-          : albumArtBase64,
-
-      definedFields: _definedFields.union(other._definedFields),
+      isValid: isValid,
+      title: (title != oldState.title) ? title : null,
+      artist: (artist != oldState.artist) ? artist : null,
+      album: (album != oldState.album) ? album : null,
+      status: (status != oldState.status) ? status : null,
+      position: (position != oldState.position) ? position : null,
+      duration: (duration != oldState.duration) ? duration : null,
+      albumArtUri: (albumArtUri != oldState.albumArtUri) ? albumArtUri : null,
     );
   }
 
   MediaInfo copyWith({
+    required bool isValid,
     String? title,
     String? artist,
     String? album,
     bool? status,
     int? position,
     int? duration,
-    String? albumArtBase64,
+    Uri? albumArtUri,
   }) {
-    final trackedFields = Set<String>.from(_definedFields);
-    if (title != null) trackedFields.add('title');
-    if (artist != null) trackedFields.add('artist');
-    if (album != null) trackedFields.add('album');
-    if (status != null) trackedFields.add('status');
-    if (position != null) trackedFields.add('position');
-    if (duration != null) trackedFields.add('duration');
-    if (albumArtBase64 != null) trackedFields.add('albumArtBase64');
-
     return MediaInfo(
+      isValid: isValid,
       title: title ?? this.title,
       artist: artist ?? this.artist,
       album: album ?? this.album,
       status: status ?? this.status,
       position: position ?? this.position,
       duration: duration ?? this.duration,
-      albumArtBase64: albumArtBase64 ?? this.albumArtBase64,
-      definedFields: trackedFields,
+      albumArtUri: albumArtUri ?? this.albumArtUri,
     );
   }
 
   static const empty = MediaInfo(
+    isValid: false,
     title: '',
     artist: '',
     album: '',
     status: false,
     position: 0,
     duration: 0,
-    albumArtBase64: '',
-    definedFields: {},
+    albumArtUri: null,
   );
-
-  bool get isValid => title != 'Unknown' && title.isNotEmpty;
-
-  Map<String, dynamic> toMap() => {
-    'title': title,
-    'artist': artist,
-    'album': album,
-    'status': status ? 'Playing' : 'Paused',
-    'position': position,
-    'duration': duration,
-    'albumArt': albumArtBase64,
-  };
-
-  static MediaInfo getDifference(MediaInfo oldInfo, MediaInfo newInfo) {
-    final diffFields = <String>{};
-
-    void check(String field, dynamic oldValue, dynamic newValue) {
-      if (oldValue != newValue) {
-        diffFields.add(field);
-      }
-    }
-
-    check('title', oldInfo.title, newInfo.title);
-    check('artist', oldInfo.artist, newInfo.artist);
-    check('album', oldInfo.album, newInfo.album);
-    // always keep status and position as new Info status
-    check('duration', oldInfo.duration, newInfo.duration);
-    check('albumArtBase64', oldInfo.albumArtBase64, newInfo.albumArtBase64);
-
-    return MediaInfo(
-      title: diffFields.contains('title') ? newInfo.title : '',
-      artist: diffFields.contains('artist') ? newInfo.artist : '',
-      album: diffFields.contains('album') ? newInfo.album : '',
-      status: newInfo.status,
-      position: newInfo.position,
-      duration: diffFields.contains('duration') ? newInfo.duration : 0,
-      albumArtBase64: diffFields.contains('albumArtBase64')
-          ? newInfo.albumArtBase64
-          : '',
-      definedFields: diffFields,
-    );
-  }
 
   @override
   bool operator ==(Object other) =>
@@ -216,7 +219,7 @@ class MediaInfo {
           status == other.status &&
           position == other.position &&
           duration == other.duration &&
-          albumArtBase64 == other.albumArtBase64;
+          albumArtUri == other.albumArtUri;
 
   @override
   int get hashCode =>
@@ -226,5 +229,5 @@ class MediaInfo {
       status.hashCode ^
       position.hashCode ^
       duration.hashCode ^
-      albumArtBase64.hashCode;
+      albumArtUri.hashCode;
 }

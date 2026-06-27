@@ -13,7 +13,7 @@ class MusicNotificationListenerService : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         if (sbn == null) return
         super.onNotificationPosted(sbn)
-
+        
         val extras = sbn.notification?.extras ?: return
         val templateStyle = extras.getString(Notification.EXTRA_TEMPLATE) ?: "Standard"
         val isMedia = templateStyle == """android.app.Notification${"$"}MediaStyle"""

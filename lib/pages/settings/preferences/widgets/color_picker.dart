@@ -13,8 +13,14 @@ class HorizontalColorPicker extends StatelessWidget {
   });
 
   static const List<Color> _swatches = [
-    Colors.blue, Colors.red, Colors.green, Colors.orange,
-    Colors.purple, Colors.teal, Colors.indigo, Colors.pink,
+    Colors.blue,
+    Colors.red,
+    Colors.green,
+    Colors.orange,
+    Colors.purple,
+    Colors.teal,
+    Colors.indigo,
+    Colors.pink,
   ];
 
   @override
@@ -25,19 +31,25 @@ class HorizontalColorPicker extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(Icons.palette_outlined, color: Theme.of(context).colorScheme.primary),
+            Icon(
+              Icons.palette_outlined,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             const SizedBox(width: 12),
-            Text("Accent Color", style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              "Accent Color",
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
           ],
         ),
         const SizedBox(height: 16),
-        
+
         SizedBox(
           height: 50,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: _swatches.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final color = _swatches[index];
               final isSelected = color.toARGB32() == selectedColor.toARGB32();
@@ -48,9 +60,12 @@ class HorizontalColorPicker extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: color,
                     shape: BoxShape.circle,
-                    border: isSelected 
-                      ? Border.all(color: Theme.of(context).colorScheme.onSurface, width: 3)
-                      : null,
+                    border: isSelected
+                        ? Border.all(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            width: 3,
+                          )
+                        : null,
                   ),
                 ),
               );
@@ -61,3 +76,4 @@ class HorizontalColorPicker extends StatelessWidget {
     );
   }
 }
+

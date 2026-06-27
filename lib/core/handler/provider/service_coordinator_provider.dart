@@ -3,6 +3,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncos_android/core/background/background_service_provider.dart';
 import 'package:syncos_android/core/network/provider/connection_provider.dart';
+import 'package:syncos_android/core/notification/provider/notification_provider.dart';
 import 'package:syncos_android/features/battery/provider/local_battery_sender_provider.dart';
 import 'package:syncos_android/features/music/provider/local_media_sender_provider.dart';
 import 'package:syncos_android/features/music/provider/remote_media_provider.dart';
@@ -17,6 +18,7 @@ final serviceCoordinatorProvider = Provider<ServiceCoordinator>((ref) {
   final notificationListener = ref.watch(notificationListeningProvider);
   final commandDispatcher = ref.watch(commandDispatcherProvider);
   final remoteMediaService = ref.watch(remoteMediaServiceProvider);
+  final mediaNotificationService = ref.watch(mediaNotificationProvider);
   final backgroundService = ref.watch(backgroundServiceProvider);
 
   final coordinator = ServiceCoordinator(
@@ -26,6 +28,7 @@ final serviceCoordinatorProvider = Provider<ServiceCoordinator>((ref) {
     notificationListener: notificationListener,
     commandDispatcher: commandDispatcher,
     remoteMediaService: remoteMediaService,
+    mediaNotification: mediaNotificationService,
     service: backgroundService,
   );
 

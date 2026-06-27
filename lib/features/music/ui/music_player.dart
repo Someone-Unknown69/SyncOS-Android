@@ -1,10 +1,8 @@
 // Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
 
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,54 +13,34 @@ import '../../../theme/app_theme.dart';
 
 // ======================== PROVIDERS ========================
 
-final decodedImageProvider = FutureProvider<Uint8List?>((ref) async {
-  final imagePath = ref.watch(
-    remoteMediaStreamProvider.select(
-      (asyncValue) => asyncValue.maybeWhen(
-        data: (data) => data.albumArtBase64,
-        orElse: () => 'N/A',
-      ),
-    ),
-  );
-
-  if (imagePath == 'N/A' || imagePath.length <= 50) {
-    return null;
-  }
-
-  try {
-    Uint8List bytes = base64Decode(imagePath);
-    try {
-      bytes = Uint8List.fromList(gzip.decode(bytes));
-    } catch (_) {}
-    return bytes;
-  } catch (e) {
-    debugPrint("Error decoding base64 image: $e");
-    return null;
-  }
-});
+// Only track metadata relevant to theme (ignore position/status)
+final trackMetadataProvider =
+    Provider<({String? title, String? artist, Uri? albumArt})>((ref) {
+      final track = ref.watch(currentTrackProvider);
+      return (
+        title: track.title,
+        artist: track.artist,
+        albumArt: track.albumArtUri,
+      );
+    });
 
 final dynamicColorSchemeProvider = FutureProvider<ColorScheme>((ref) async {
-  final imageAsync = ref.watch(decodedImageProvider);
-
-  final imageBytes = await imageAsync.when(
-    loading: () async => null,
-    error: (err, stack) async => null,
-    data: (bytes) async => bytes,
-  );
+  final metadata = ref.watch(trackMetadataProvider);
+  final artUri = metadata.albumArt;
 
   ImageProvider provider;
-  if (imageBytes != null) {
-    provider = MemoryImage(imageBytes);
+  if (artUri != null && artUri.path.isNotEmpty) {
+    provider = FileImage(File.fromUri(artUri));
   } else {
-    provider = const AssetImage('assets/images/album2.png');
+    provider = const AssetImage('assets/images/album.png');
   }
 
   return MusicThemeService.generate(provider, Brightness.dark);
 });
 
-final statusStringProvider = Provider<String>((ref) {
+final statusProvider = Provider<bool>((ref) {
   final info = ref.watch(remoteMediaStreamProvider).value ?? MediaInfo.empty;
-  return info.status ? 'Playing' : 'Paused';
+  return info.status ?? false;
 });
 
 final currentTrackProvider = Provider<MediaInfo>((ref) {
@@ -105,8 +83,8 @@ class _MusicPlayerWidgetState extends ConsumerState<MusicPlayerWidget> {
   Widget build(BuildContext context) {
     final colorSchemeAsync = ref.watch(dynamicColorSchemeProvider);
     final info = ref.watch(currentTrackProvider);
-    final imageAsync = ref.watch(decodedImageProvider);
     final controls = ref.watch(remoteMediaServiceProvider);
+    final status = ref.watch(statusProvider);
 
     final colorScheme =
         colorSchemeAsync.whenData((scheme) => scheme).value ??
@@ -115,9 +93,9 @@ class _MusicPlayerWidgetState extends ConsumerState<MusicPlayerWidget> {
           brightness: Brightness.dark,
         );
 
-    final imageBytes = imageAsync.whenData((bytes) => bytes).value;
-    final statusStr = ref.watch(statusStringProvider);
     final theme = colorScheme;
+    final artUri = info.albumArtUri;
+    final bool hasArt = artUri != null;
 
     return Theme(
       data: ThemeData(useMaterial3: true, colorScheme: theme),
@@ -138,12 +116,17 @@ class _MusicPlayerWidgetState extends ConsumerState<MusicPlayerWidget> {
             child: Stack(
               children: [
                 Positioned.fill(
-                  child: imageBytes != null
+                  child: hasArt
                       ? SizedBox.expand(
-                          child: Image.memory(
-                            imageBytes,
+                          child: Image.file(
+                            File.fromUri(artUri),
                             fit: BoxFit.cover,
                             gaplessPlayback: true,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: localTheme.surfaceContainer,
+                              );
+                            },
                           ),
                         )
                       : Container(color: localTheme.surfaceContainer),
@@ -175,8 +158,8 @@ class _MusicPlayerWidgetState extends ConsumerState<MusicPlayerWidget> {
                         children: [
                           Expanded(
                             child: _TrackInfo(
-                              name: info.title,
-                              artist: info.artist,
+                              name: info.title ?? "Nothing Playing",
+                              artist: info.artist ?? "",
                               theme: localTheme,
                             ),
                           ),
@@ -187,7 +170,7 @@ class _MusicPlayerWidgetState extends ConsumerState<MusicPlayerWidget> {
                               controls.playPauseToggle();
                             },
                             icon: Icon(
-                              statusStr == 'Playing'
+                              status
                                   ? Icons.pause_outlined
                                   : Icons.play_arrow_outlined,
                               size: 25,
@@ -210,9 +193,9 @@ class _MusicPlayerWidgetState extends ConsumerState<MusicPlayerWidget> {
                               padding: const EdgeInsets.fromLTRB(0, 0, 8, 0),
                               child: MusicProgressSlider(
                                 theme: theme,
-                                duration: info.duration.toDouble(),
-                                position: info.position.toDouble(),
-                                status: statusStr,
+                                duration: info.duration?.toDouble() ?? 0.0,
+                                position: info.position?.toDouble() ?? 0.0,
+                                status: status,
                               ),
                             ),
                           ),
@@ -322,7 +305,7 @@ class MusicProgressSlider extends ConsumerStatefulWidget {
   final ColorScheme theme;
   final double duration;
   final double position;
-  final String status;
+  final bool status;
 
   const MusicProgressSlider({
     super.key,
@@ -358,7 +341,7 @@ class _MusicProgressSliderState extends ConsumerState<MusicProgressSlider>
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
-    if (widget.status == 'Playing') {
+    if (widget.status) {
       _flattenController.value = 1.0;
       _waveController.repeat();
     }
@@ -380,7 +363,7 @@ class _MusicProgressSliderState extends ConsumerState<MusicProgressSlider>
 
     if (oldWidget.status != widget.status) {
       _updateTimer();
-      if (widget.status == 'Playing') {
+      if (widget.status) {
         _waveController.repeat();
         _flattenController.forward();
       } else {
@@ -392,7 +375,7 @@ class _MusicProgressSliderState extends ConsumerState<MusicProgressSlider>
 
   void _updateTimer() {
     _timer?.cancel();
-    if (widget.status == 'Playing') {
+    if (widget.status) {
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (mounted && _localPosition < widget.duration) {
           setState(() {
@@ -511,5 +494,3 @@ class SquigglePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant SquigglePainter oldDelegate) => true;
 }
-
-// -----------------------------------------------------------------------------------------------------
