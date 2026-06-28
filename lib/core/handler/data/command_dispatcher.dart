@@ -7,16 +7,16 @@ import 'package:syncos_android/core/handler/domain/i_command_dispatcher.dart';
 import 'package:syncos_android/core/misc/app_logging.dart';
 import 'package:syncos_android/core/network/domain/i_connection_manager.dart';
 import 'package:syncos_android/core/utilities/domain/i_ringtone_service.dart';
-import 'package:syncos_android/features/music/data/remote_media_service.dart';
-import 'package:syncos_android/features/music/domain/i_local_media_sender.dart';
-import 'package:syncos_android/features/music/domain/models/media_info.dart';
+import 'package:syncos_android/features/media/data/local_media_sender.dart';
+import 'package:syncos_android/features/media/data/remote_media_service.dart';
+import 'package:syncos_android/features/media/domain/models/media_info.dart';
 
 class CommandDispatcher implements ICommandDispatcher {
   final IConnectionManager _connectionManager;
 
   // Services that strictly run in background and have no intention to use UI
   final IRingtoneService _ringtoneService;
-  final IMediaService _mediaService; // Only for control commands
+  final LocalMediaSender _mediaService; // Only for control commands
   final RemoteMediaService _remoteMediaService;
 
   StreamSubscription<String>? _rawMessageSubscription;
@@ -73,7 +73,7 @@ class CommandDispatcher implements ICommandDispatcher {
         break;
       case 'music':
         if (action == 'control') {
-          _mediaService.sendControlCommand(args);
+          _mediaService.handleControlCommand(args);
         } else if (action == 'update_metadata') {
           _remoteMediaService.updateMedia(await MediaInfo.fromPayload(args));
         }

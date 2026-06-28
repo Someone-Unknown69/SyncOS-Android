@@ -4,13 +4,12 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:syncos_android/core/misc/app_logging.dart';
 import 'package:syncos_android/core/misc/base64_image_converter.dart';
-import 'package:syncos_android/core/notification/domain/i_media_notification.dart';
-import 'package:syncos_android/features/music/data/remote_media_service.dart';
-import 'package:syncos_android/features/music/domain/models/media_info.dart';
+import 'package:syncos_android/core/media/domain/i_media_notification.dart';
+import 'package:syncos_android/features/media/data/remote_media_service.dart';
+import 'package:syncos_android/features/media/domain/models/media_info.dart';
 
 /// Drives the Android MediaStyle notification based on remote media state.
 ///
-/// Lifecycle:
 ///   start()        — opens the Kotlin EventChannel for button taps and
 ///                    subscribes to [RemoteMediaService.mediaUpdates].
 ///   updateNotif()  — serialises [MediaInfo] and pushes it to Kotlin.
@@ -29,7 +28,6 @@ class AndroidMediaNotification implements IMediaNotification {
 
   AndroidMediaNotification(this._remoteMediaService);
 
-  // ── Lifecycle ──────────────────────────────────────────────────────────────
 
   @override
   Future<void> start() async {
@@ -49,7 +47,7 @@ class AndroidMediaNotification implements IMediaNotification {
       }
     });
 
-    logDebug('Media Notification', 'Started — listening for media + controls');
+    logDebug('Media Notification', 'Started listening for media and controls');
   }
 
   @override
@@ -61,8 +59,6 @@ class AndroidMediaNotification implements IMediaNotification {
     await removeNotif();
     logDebug('Media Notification', 'Stopped');
   }
-
-  // ── Display helpers ────────────────────────────────────────────────────────
 
   @override
   Future<void> displayNotif() async {
@@ -81,9 +77,8 @@ class AndroidMediaNotification implements IMediaNotification {
 
   @override
   Future<void> updateNotif(MediaInfo mediaInfo) async {
-    logDebug('Media Notification', 'Updating → ${mediaInfo.title} [${mediaInfo.status}]');
+    logDebug('Media Notification', 'Updating => ${mediaInfo.title} [${mediaInfo.status}]');
 
-    // Encode album art as base-64 so Kotlin can decode it from the map
     String? albumArtBase64;
     if (mediaInfo.albumArtUri != null) {
       try {
@@ -99,8 +94,7 @@ class AndroidMediaNotification implements IMediaNotification {
       'album': mediaInfo.album ?? '',
       'isPlaying': mediaInfo.status ?? false,
       'albumArtBase64': albumArtBase64,
-      // RemoteMediaService stores position/duration in seconds,
-      // but Android MediaSession requires milliseconds.
+      // Android MediaSession requires milliseconds.
       'position': (mediaInfo.position ?? 0) * 1000,
       'duration': (mediaInfo.duration ?? 0) * 1000,
     });
@@ -113,11 +107,7 @@ class AndroidMediaNotification implements IMediaNotification {
     await _method.invokeMethod('removeMediaNotification');
   }
 
-  // ── Control routing ────────────────────────────────────────────────────────
-
   void _handleControl(String control) {
-    logDebug('Media Notification', 'Button tapped: $control');
-    
     if (control.startsWith('seek:')) {
       final posStr = control.substring(5);
       final pos = int.tryParse(posStr);

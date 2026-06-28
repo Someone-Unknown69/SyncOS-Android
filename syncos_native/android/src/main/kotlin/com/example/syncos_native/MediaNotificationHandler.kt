@@ -34,7 +34,6 @@ class MediaNotificationHandler(private val context: Context) {
         const val METHOD_CHANNEL = "com.example.media_notification"
         const val EVENT_CHANNEL = "com.example.media_notification/controls"
 
-        // Action strings for the BroadcastReceiver — package-scoped so they are private
         const val ACTION_PLAY_PAUSE = "com.example.syncos_native.MEDIA_PLAY_PAUSE"
         const val ACTION_NEXT      = "com.example.syncos_native.MEDIA_NEXT"
         const val ACTION_PREVIOUS  = "com.example.syncos_native.MEDIA_PREVIOUS"
@@ -153,7 +152,7 @@ class MediaNotificationHandler(private val context: Context) {
         positionMs: Long = 0L,
         durationMs: Long = 0L
     ) {
-        // Lazily create a MediaSession so the notification gets lock-screen / quick-settings support
+        // Lazily creates a MediaSession so the notification gets lock-screen / quick-settings support
         if (mediaSession == null) {
             mediaSession = MediaSessionCompat(context, "SyncOSRemote").apply {
                 setCallback(object : MediaSessionCompat.Callback() {
@@ -210,7 +209,6 @@ class MediaNotificationHandler(private val context: Context) {
             }
         }
 
-        // Duration and album art are required for the seek bar and high-quality artwork
         val metadataBuilder = MediaMetadataCompat.Builder()
             .putString(MediaMetadataCompat.METADATA_KEY_TITLE,    title)
             .putString(MediaMetadataCompat.METADATA_KEY_ARTIST,   artist)
@@ -239,7 +237,7 @@ class MediaNotificationHandler(private val context: Context) {
             .setLargeIcon(albumArt)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            // Do NOT call setSilent(true) — it suppresses the interactive controls
+            // Do NOT call setSilent(true)  it suppresses the interactive controls
             // on many Android skins. Sound/vibration are already disabled on the channel.
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
@@ -291,7 +289,7 @@ class MediaNotificationHandler(private val context: Context) {
                     else              -> return
                 }
                 Log.d(TAG, "Control button tapped: $control (sink=${eventSink != null})")
-                // Always post on mainHandler — the EventSink must be called on the
+                // Always post on mainHandler the EventSink must be called on the
                 // thread that owns the Flutter engine's binary messenger.
                 mainHandler.post {
                     eventSink?.success(control)

@@ -6,8 +6,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:syncos_android/features/music/domain/models/media_info.dart';
-import 'package:syncos_android/features/music/provider/remote_media_provider.dart';
+import 'package:syncos_android/features/media/domain/models/media_info.dart';
+import 'package:syncos_android/features/media/provider/remote_media_provider.dart';
 
 import '../../../theme/app_theme.dart';
 
@@ -104,7 +104,7 @@ class _MusicPlayerWidgetState extends ConsumerState<MusicPlayerWidget> {
           final localTheme = Theme.of(context).colorScheme;
 
           return Container(
-            margin: const EdgeInsets.all(AppTheme.spacing / 2),
+            margin: const EdgeInsets.all(AppTheme.spacing / 4),
             height: 200,
             clipBehavior: Clip.antiAlias,
 

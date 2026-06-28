@@ -4,8 +4,8 @@ import 'dart:async';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:syncos_android/core/misc/app_logging.dart';
 import 'package:syncos_android/core/network/domain/i_connection_manager.dart';
-import 'package:syncos_android/features/music/domain/i_remote_media_state.dart';
-import 'package:syncos_android/features/music/domain/models/media_info.dart';
+import 'package:syncos_android/features/media/domain/i_remote_media_state.dart';
+import 'package:syncos_android/features/media/domain/models/media_info.dart';
 
 // This provides remote media updates to both background services as well as UI listeners , the metadata is cached so anyone can request metadata anytime
 // Note that this shall be the only source for remote media data as well as control methods
@@ -38,6 +38,8 @@ class RemoteMediaService implements IRemoteMediaState {
 
   Future<void> start({ServiceInstance? backgroundService}) async {
     try {
+      await _cleanSubscriptions();
+
       if (backgroundService == null) {
         // UI side setup
         isUiInstance = true;
@@ -57,14 +59,17 @@ class RemoteMediaService implements IRemoteMediaState {
   Future<void> stop() async {
     logDebug('Remote Media', 'Stopping service');
 
-    await _uiServiceSubscription?.cancel();
-    await _bgServiceSubscription?.cancel();
+    await _cleanSubscriptions();
 
-    _uiServiceSubscription = null;
-    _bgServiceSubscription = null;
-    _backgroundService = null;
+    _mediaCache = MediaInfo.empty;
+    _lastCacheTime = null;
+  }
 
-    await _controller.close();
+  void dispose() {
+    stop();
+    if (!_controller.isClosed) {
+      _controller.close();
+    }
   }
 
   void updateMedia(MediaInfo metadata) {
@@ -111,7 +116,7 @@ class RemoteMediaService implements IRemoteMediaState {
   }
 
   void _sendSeekChange(int position) {
-    // Immediately update local cache so the UI and Android Media Notification 
+    // Immediately update local cache so the UI and Android Media Notification
     // seekbars update instantly on both isolates
     final updatedMetadata = _mediaCache.copyWith(
       isValid: _mediaCache.isValid,
@@ -124,8 +129,19 @@ class RemoteMediaService implements IRemoteMediaState {
         'position': position,
       });
     } else {
-      _connectionManager.send('music', 'control', {'method': 'seek', 'position': position});
+      _connectionManager.send('music', 'control', {
+        'method': 'seek',
+        'position': position,
+      });
     }
+  }
+
+  Future<void> _cleanSubscriptions() async {
+    await _uiServiceSubscription?.cancel();
+    await _bgServiceSubscription?.cancel();
+    _uiServiceSubscription = null;
+    _bgServiceSubscription = null;
+    _backgroundService = null;
   }
 
   Future<void> _setUIListeners() async {

@@ -3,18 +3,18 @@
 import 'dart:async';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:syncos_android/core/handler/domain/i_command_dispatcher.dart';
+import 'package:syncos_android/core/media/domain/i_media_notification.dart';
 import 'package:syncos_android/core/network/domain/i_connection_manager.dart';
 import 'package:syncos_android/core/misc/app_logging.dart';
-import 'package:syncos_android/core/notification/domain/i_media_notification.dart';
 import 'package:syncos_android/features/battery/domain/i_local_battery_sender.dart';
-import 'package:syncos_android/features/music/data/remote_media_service.dart';
-import 'package:syncos_android/features/music/domain/i_local_media_sender.dart';
+import 'package:syncos_android/features/media/data/local_media_sender.dart';
+import 'package:syncos_android/features/media/data/remote_media_service.dart';
 import 'package:syncos_android/features/notification_sender/domain/i_local_notification_sender.dart';
 
 class ServiceCoordinator {
   final IConnectionManager _connectionManager;
   final IBatteryMonitorService _batteryMonitorService;
-  final IMediaService _mediaService;
+  final LocalMediaSender _mediaService;
   final INotificationListener _notificationListener;
   final ICommandDispatcher _commandDispatcher;
   final RemoteMediaService _remoteMediaService;
@@ -28,7 +28,7 @@ class ServiceCoordinator {
   ServiceCoordinator({
     required IConnectionManager connectionManager,
     required IBatteryMonitorService batteryMonitorService,
-    required IMediaService mediaService,
+    required LocalMediaSender mediaService,
     required INotificationListener notificationListener,
     required ICommandDispatcher commandDispatcher,
     required RemoteMediaService remoteMediaService,

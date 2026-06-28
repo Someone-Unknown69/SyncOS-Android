@@ -2,8 +2,8 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncos_android/core/network/provider/connection_provider.dart';
-import 'package:syncos_android/features/music/data/remote_media_service.dart';
-import 'package:syncos_android/features/music/domain/models/media_info.dart';
+import 'package:syncos_android/features/media/data/remote_media_service.dart';
+import 'package:syncos_android/features/media/domain/models/media_info.dart';
 
 final remoteMediaServiceProvider = Provider<RemoteMediaService>((ref) {
   final connectionManager = ref.read(connectionManagerProvider);
