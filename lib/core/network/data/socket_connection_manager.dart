@@ -266,7 +266,7 @@ class SocketConnectionManager implements IConnectionManager{
   @override
   Future<void> unpair() async {
     try {
-      await _sendRaw(jsonEncode({'op': 'unpair'}), compress: false);
+      await _sendRaw(jsonEncode({'op': 'unpair'}));
     } catch (e) {
       debugPrint('[Socket] Could not notify server of unpair, forcing local cleanup.');
     }
@@ -348,12 +348,7 @@ class SocketConnectionManager implements IConnectionManager{
       if (bytes.length > 4 + length) _buffer.add(bytes.sublist(4 + length));
 
       try {
-        final String message;
-        if (payload.length >= 2 && payload[0] == 0x1F && payload[1] == 0x8B) {
-          message = utf8.decode(gzip.decode(payload));
-        } else {
-          message = utf8.decode(payload);
-        }
+        final String message = utf8.decode(payload);
 
         if (message == 'PONG') {
           _pongTimeoutTimer?.cancel();
@@ -466,10 +461,9 @@ class SocketConnectionManager implements IConnectionManager{
     });
   }
 
-  Future<void> _sendRaw(String msg, {bool compress = true}) async {
+  Future<void> _sendRaw(String msg) async {
     try {
-      final rawBytes = utf8.encode(msg);
-      final List<int> payload = compress ? gzip.encode(rawBytes) : rawBytes;
+      final List<int> payload = utf8.encode(msg);
       final lengthBytes = ByteData(4)..setUint32(0, payload.length, Endian.big);
       final socket = _socket;
       
@@ -497,10 +491,10 @@ class SocketConnectionManager implements IConnectionManager{
   void _handleError() => _handleConnectionLoss();
 
   void _sendAuth(String token) {
-    _sendRaw(jsonEncode({"op": 'auth', "args": {"token": token}}), compress: false);
+    _sendRaw(jsonEncode({"op": 'auth', "args": {"token": token}}));
   }
 
   void _pair() {
-    _sendRaw(jsonEncode({"op": 'pair', "args": {}}), compress: false);
+    _sendRaw(jsonEncode({"op": 'pair', "args": {}}));
   }
 }

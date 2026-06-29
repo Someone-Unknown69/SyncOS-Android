@@ -72,6 +72,7 @@ class AndroidMediaInfo implements ILocalMediaInfo {
           typedResult['packageName'] == 'com.syncos.syncos_android') {
         return;
       }
+
       _metadataController.add(MediaInfo.fromMap(typedResult));
     });
   }

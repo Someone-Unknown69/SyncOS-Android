@@ -37,16 +37,18 @@ class MusicNotificationListenerService : NotificationListenerService() {
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
         Log.d("MusicNotification", "Notification listener disconnected")
-        MusicDetectionHandler.sendMusicEvent(mapOf(
-            "permissionGranted" to false,
-            "isPlaying" to false,
-            "title" to null,
-            "artist" to null,
-            "album" to null,
-            "packageName" to null,
-            "duration" to null,
-            "currentPosition" to null
-        ))
+	MusicDetectionHandler.sendMusicEvent(mapOf(
+	    "isValid" to false,
+	    "permissionGranted" to false,
+	    "status" to false,
+	    "title" to null,
+	    "artist" to null,
+	    "album" to null,
+	    "packageName" to null, 
+	    "duration" to null,
+	    "position" to null,
+	    "albumArtUri" to null,
+	))
     }
     
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
@@ -65,16 +67,18 @@ class MusicNotificationListenerService : NotificationListenerService() {
                 }
             }
             if (!found) {
-                MusicDetectionHandler.sendMusicEvent(mapOf(
-                    "permissionGranted" to true,
-                    "isPlaying" to false,
-                    "title" to null,
-                    "artist" to null,
-                    "album" to null,
-                    "packageName" to null,
-                    "duration" to null,
-                    "currentPosition" to null
-                ))
+		MusicDetectionHandler.sendMusicEvent(mapOf(
+		    "isValid" to true,
+		    "permissionGranted" to true,
+		    "status" to false,
+		    "title" to null,
+		    "artist" to null,
+		    "album" to null,
+		    "packageName" to null, 
+		    "duration" to null,
+		    "position" to null,
+		    "albumArtUri" to null,
+		))
             }
         }
     }
@@ -131,14 +135,16 @@ class MusicNotificationListenerService : NotificationListenerService() {
         }
 
         MusicDetectionHandler.sendMusicEvent(mapOf(
+	    "isValid" to true,
             "permissionGranted" to true,
-            "isPlaying" to true,
-            "title" to title,
-            "artist" to artist,
-            "album" to subText,
-            "packageName" to sbn.packageName,
+            "status" to true,
+            "title" to null,
+            "artist" to null,
+            "album" to null,
+            "packageName" to null,
             "duration" to null,
-            "currentPosition" to null
+            "position" to null,
+	    "albumArtUri" to null,
         ))
 
         // Re-register playback callbacks so the new session is tracked for play/pause and seek

@@ -60,7 +60,6 @@ Future<void> start() async {
 
     _mediaCache = _mediaCache.mergeWith(newMetadata);
 
-    logDebug('Media Cache', 'Sending payload : ${changedInfo.toMap()}');
     _sendChange(changedInfo);
   }
 
@@ -75,7 +74,7 @@ Future<void> start() async {
   }
 
   void _sendChange(MediaInfo metadata) async {
-    logDebug('Media Listener', 'Sending payload : ${metadata.toMap()}');
+    logDebug('Local Media Sender', 'Sending payload : ${metadata.toMap()}');
     final payload = await metadata.toPayload();
     _lastUpdateTime = DateTime.now().millisecondsSinceEpoch;
     _connectionManager.send('music', 'update_metadata', payload);
