@@ -8,10 +8,8 @@ import 'package:crypto/crypto.dart';
 import 'package:syncos_android/core/storage/data/storage_service.dart';
 import 'package:syncos_android/core/misc/app_logging.dart';
 import 'package:rxdart/rxdart.dart';
-
 import '../domain/i_connection_manager.dart';
 import '../domain/connection_config.dart';
-import 'package:flutter/foundation.dart';
 
 class SocketConnectionManager implements IConnectionManager{
   final StorageService _storage;
@@ -82,7 +80,7 @@ class SocketConnectionManager implements IConnectionManager{
       _discoveredConfigsCache.clear();
 
       _discoverySocket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, _discoveryPort);
-      debugPrint('[Pairing] Discovering nearby devices...');
+      logDebug('Socket', '[Pairing] Discovering nearby devices...');
 
       final currentSocket = _discoverySocket;
       if (currentSocket == null) return;
@@ -100,7 +98,7 @@ class SocketConnectionManager implements IConnectionManager{
             if (payload['service'] == 'SyncOS-server' && payload['status'] == 'pairing_mode') {
               final discoveredConfig = ConnectionConfig.fromMap(payload['config']);
 
-              debugPrint("[Pairing] New Server Discovered: ${payload['config']}");
+              logDebug('Socket', 'New Server Discovered: ${payload['config']}');
               _nearbyDevicesController.add(discoveredConfig);
 
               if (!_discoveredConfigsCache.contains(discoveredConfig)) {
@@ -112,7 +110,7 @@ class SocketConnectionManager implements IConnectionManager{
         }
       }
     } catch (e) {
-      debugPrint('[Pairing] Binding error: $e');
+      logDebug('Socket', '[Pairing] Binding Error');
     }
   }
 
@@ -122,7 +120,7 @@ class SocketConnectionManager implements IConnectionManager{
       // Any case where we are already not connected, add disconnected
       _statusController.add(ConnectionStatus.disconnected);
     }
-    debugPrint('[Socket] Stopping all discovery/auto-connect sockets');
+    logDebug('Socket', 'Stopping all discovery/auto-connect sockets');
     
     _discoverySocket?.close();
     _discoverySocket = null;
@@ -136,8 +134,10 @@ class SocketConnectionManager implements IConnectionManager{
 
   @override
   Future<void> autoConnectionStart() async {
-    // return when already listening
-    if(status != ConnectionStatus.listening) return;
+    // Allow restart from `connecting` too — Doze mode can interrupt an in-progress
+    // connection attempt, leaving the status stuck at `connecting` after the maintenance
+    // window closes. Without this, the reconnect loop silently exits and never recovers.
+    if (status != ConnectionStatus.listening && status != ConnectionStatus.connecting) return;
 
     try {
       _autoConnectSocket?.close();
@@ -146,7 +146,7 @@ class SocketConnectionManager implements IConnectionManager{
         _discoveryPort,
         reuseAddress: true,
       );
-      debugPrint('[Socket] Auto Connection Turned ON');
+      logDebug('Socket', 'Auto Connection Turned ON');
 
       final currentSocket = _autoConnectSocket;
       if (currentSocket == null) return;
@@ -170,7 +170,7 @@ class SocketConnectionManager implements IConnectionManager{
 
               final localToken = await _storage.getPairingToken();
               if (localToken == null || localToken.isEmpty) {
-                debugPrint('[Auto Connect] No pairing token stored locally, Aborting.');
+                logDebug('Socket', '[Auto Connect] No pairing token stored locally, Aborting');
                 continue;
               }
 
@@ -180,11 +180,11 @@ class SocketConnectionManager implements IConnectionManager{
               final bool isVerified = _verifyServerHMAC(serverTimestamp, serverSignature, localToken);
 
               if (!isVerified) {
-                debugPrint('[Security Warning] Received unauthenticated verification');
+                logDebug('Socket', '[Security Warning] Received unauthenticated verification');
                 continue;
               }
 
-              debugPrint('[Auto Connect] Valid authentication identity.');
+                logDebug('Socket', '[Auto Connect] Valid authentication identity');
               
               // close and connect natively
               _autoConnectSocket?.close();
@@ -197,7 +197,7 @@ class SocketConnectionManager implements IConnectionManager{
         }
       }
     } catch (e) {
-      debugPrint('[Auto Connect] Passive loop fault: $e');
+      logDebug('Socket', '[Auto Connect] Passive loop fault: $e');
     }
   }
 
@@ -209,7 +209,7 @@ class SocketConnectionManager implements IConnectionManager{
 
       // Packet must be created within the last 15 seconds
       if ((localTime - serverTime).abs() > 15) {
-        debugPrint('[Security] Expired packet verification dropped. Diff: ${(localTime - serverTime).abs()}s');
+        logDebug('Socket', '[Security] Expired packet verification dropped. Diff: ${(localTime - serverTime).abs()}s');
         return false;
       }
 
@@ -239,7 +239,7 @@ class SocketConnectionManager implements IConnectionManager{
       _serverConfig = config;
       _statusController.add(ConnectionStatus.connecting);
 
-      debugPrint('[Socket] Initializing TCP connection to ${config.ip}');
+      logDebug('Socket', 'Initializing TCP connection to ${config.ip}');
       await _attemptConnection(config.ip, config.port);
     } else {
       throw UnsupportedError("This manager only supports TCP connections");
@@ -255,7 +255,7 @@ class SocketConnectionManager implements IConnectionManager{
     if (config is TcpConfig) {
       _statusController.add(ConnectionStatus.pairing);
       
-      debugPrint('[Socket] Sending Pair Request');
+      logDebug('Socket', 'Sending Pair Request');
 
       await _attemptConnection(config.ip, config.port);
     } else {
@@ -268,13 +268,13 @@ class SocketConnectionManager implements IConnectionManager{
     try {
       await _sendRaw(jsonEncode({'op': 'unpair'}));
     } catch (e) {
-      debugPrint('[Socket] Could not notify server of unpair, forcing local cleanup.');
+      logDebug('Socket', 'Could not notify server of unpair, forcing local cleanup');
     }
     await _performFullTeardown(clearStorage: true);
-    debugPrint('[Socket] Device unpaired and storage cleared.');
+    logDebug('Socket', 'Device unpaired and storage cleared');
 
     discoverDevices();
-    debugPrint('[Socket] Device Discovery started');
+    logDebug('Socket', 'Device Discovery started');
   }
 
   @override
@@ -286,8 +286,8 @@ class SocketConnectionManager implements IConnectionManager{
 
   @override
   void disconnect() {
+    logDebug('Socket', 'Performing Manual disconnect');
     _performFullTeardown(clearStorage: false);
-    debugPrint('[Socket] Manual disconnect.');
   }
 
   /// ------------------      core implementation      ------------------------------
@@ -312,8 +312,14 @@ class SocketConnectionManager implements IConnectionManager{
           _buffer.add(data);
           _processBuffer();
         },
-        onError: (e) => _handleError(),
-        onDone: _handleError,
+        onError: (e) {
+          logDebug('Socket', 'onError triggered: $e');
+          _handleError();
+        },
+        onDone: () {
+          logDebug('Socket', 'onDone triggered (remote peer closed connection)');
+          _handleError();
+        },
       );
 
       // Check if token is available
@@ -328,9 +334,9 @@ class SocketConnectionManager implements IConnectionManager{
       }
 
       await _authCompleter!.future.timeout(const Duration(seconds: 5));
-      debugPrint("[Socket] Authentication successful, entering data mode");
+      logDebug('Socket', 'Authentication successful, entering data mode');
     } catch(e) {
-      debugPrint('[Socket] Connection failed: $e');
+      logDebug('Socket', 'Connection failed: $e');
       _statusController.add(ConnectionStatus.listening);
       autoConnectionStart();
     }
@@ -358,7 +364,7 @@ class SocketConnectionManager implements IConnectionManager{
         final data = jsonDecode(message) as Map<String, dynamic>;
         _handleProtocolMessage(data);
       } catch (e) {
-        debugPrint('[Socket] Error parsing message: $e');
+        logDebug('Socket', 'Error parsing message: $e');
       }
     }
   }
@@ -394,7 +400,7 @@ class SocketConnectionManager implements IConnectionManager{
 
     if(op == 'unpair') {
       unpair();
-      debugPrint('[Socket] Remote device unpaired');
+      logDebug('Socket', 'Remote device unpaired');
     }
     
     if (status == ConnectionStatus.connected) {
@@ -404,7 +410,7 @@ class SocketConnectionManager implements IConnectionManager{
   }
 
   void _finalizeConnection({String? token, Map<String, dynamic>? config}) {
-    debugPrint("[Socket] Finalizing connection with token $token");
+    logDebug('Socket', 'Finalizing connection with token $token');
 
     _statusController.add(ConnectionStatus.connected);
     _startHeartbeat();
@@ -433,7 +439,7 @@ class SocketConnectionManager implements IConnectionManager{
     // Storage clear false will be case for manual disconnect and 
     // Storage clear true will be case of unpairing
 
-    debugPrint('[Socket] Performing full teardown. Storage clear: $clearStorage');
+    logDebug('Socket', 'Performing full teardown. Storage clear : $clearStorage');
     _statusController.add(ConnectionStatus.disconnected);
 
     if (clearStorage) {
@@ -456,8 +462,12 @@ class SocketConnectionManager implements IConnectionManager{
     _heartbeatTimer?.cancel();
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       _sendRaw('PING');
+      logDebug('Socket', 'PING sent');
 
-      _pongTimeoutTimer = Timer(const Duration(seconds: 10), _handleError);
+      _pongTimeoutTimer = Timer(const Duration(seconds: 10), () {
+        logDebug('Socket', 'timeout: PONG not received within 10s');
+        _handleError();
+      });
     });
   }
 
@@ -472,7 +482,7 @@ class SocketConnectionManager implements IConnectionManager{
 
       await socket.flush();
     } catch (e) {
-      debugPrint('[Socket] Send raw error: $e');
+      logDebug('Socket', 'Send raw error: $e');
     }
   }
 
@@ -482,9 +492,9 @@ class SocketConnectionManager implements IConnectionManager{
       await _storage.clearPairingToken();
       _cleanup();
 
-      debugPrint('[Socket] Paired device Info cleared successfully');
+      logDebug('Socket', 'Paired device Info cleared successfully');
     } catch (e) {
-      debugPrint('[Socket] Error while clearing connection info of unpaired device');
+      logDebug('Socket', 'Error while clearing connection info of unpaired device');
     }
   }
 

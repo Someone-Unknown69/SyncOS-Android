@@ -10,6 +10,8 @@ import 'app_routes.dart';
 
 import 'package:syncos_android/pages/home/home_screen.dart';
 import 'package:syncos_android/pages/gamepad/launch_gamepad.dart';
+import 'package:syncos_android/pages/gamepad/configure_gamepad.dart';
+import 'package:syncos_android/pages/gamepad/gamepad_settings.dart';
 import 'package:syncos_android/pages/settings/settings.dart';
 import 'package:syncos_android/pages/main_layout/main_layout.dart';
 import 'package:syncos_android/pages/settings/preferences/theme_mode_page.dart';
@@ -58,6 +60,10 @@ class AppRouter {
 
       case AppRoutes.launchGamepad:
         return _createSlideRoute(const LaunchGamepad());
+      case AppRoutes.configureLayout:
+        return _createSlideRoute(const ConfigureGamepadLayout());
+      case AppRoutes.gamepadSettings:
+        return _createSlideRoute(const GamepadSettingsPage());
 
       case AppRoutes.connectionDetails:
         return _createSlideRoute(const ConnectionDetails());

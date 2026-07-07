@@ -9,4 +9,6 @@ class StorageKeys {
 
   // settings
   static const String appSettings = 'app_settings';
+  static const String gamepadLayout = 'gamepad_layout';
+  static const String gamepadSettings = 'gamepad_settings';
 }

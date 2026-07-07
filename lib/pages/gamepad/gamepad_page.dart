@@ -13,53 +13,42 @@ class GamepadPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BasePage(
-      title: 'Gamepad', 
+      title: 'Gamepad',
       children: [
         buildSectionHeader(context, 'Play time !'),
-          
+
         buildSettingsTile(
-          icon: Icons.sports_esports, 
-          title: "Launch Gamepad", 
+          icon: Icons.sports_esports,
+          title: "Launch Gamepad",
           onTap: () {
             AppRouter.pushRoute(context, AppRoutes.launchGamepad);
           },
         ),
         const SizedBox(height: AppTheme.spacing),
-        
 
         buildSectionHeader(context, 'Options'),
 
         buildSettingsTile(
-          icon: Icons.settings_overscan_rounded, 
-          title: 'Configure Layout', 
+          icon: Icons.settings_overscan_rounded,
+          title: 'Configure Layout',
           subtitle: 'Change button positions and size',
           onTap: () {
-            // TODO : Add settings in future
-          }
+            AppRouter.pushRoute(context, AppRoutes.configureLayout);
+          },
         ),
 
         const SizedBox(height: AppTheme.spacing / 2),
 
         buildSettingsTile(
-          icon: Icons.settings, 
-          title: 'Gamepad Settings', 
+          icon: Icons.settings,
+          title: 'Gamepad Settings',
           subtitle: 'Change style, latency etc',
           onTap: () {
-            // TODO : Add in future
-          }
+            AppRouter.pushRoute(context, AppRoutes.gamepadSettings);
+          },
         ),
-        
-        const SizedBox(height: AppTheme.spacing * 4),
-
-        Text(
-          "Connect your mobile device to your laptop/PC with USB for lower latency",
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 14,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ]
+      ],
     );
   }
 }
+

@@ -6,6 +6,8 @@ import 'package:syncos_android/core/network/domain/connection_config.dart';
 import 'package:syncos_android/core/storage/domain/i_storage_service.dart';
 import 'package:syncos_android/core/storage/domain/models/app_settings.dart';
 import 'package:syncos_android/core/storage/domain/models/storage_keys.dart';
+import 'package:syncos_android/features/gamepad/domain/gamepad_layout.dart';
+import 'package:syncos_android/features/gamepad/domain/gamepad_settings.dart';
 
 /// ------------------------      StorageService          ----------------------------
 /// This class acts as the centralized "Gatekeeper" for all persistent data in the app.
@@ -98,6 +100,30 @@ class StorageService {
     final jsonString = await _prefs.read(StorageKeys.appSettings);
     if (jsonString == null) return null;
     return AppSettings.fromJson(jsonDecode(jsonString));
+  }
+
+  // ------------------ Gamepad Layout ----------------
+  Future<void> setGamepadLayout(GamepadLayout layout) async {
+    final jsonString = jsonEncode(layout.toJson());
+    await _prefs.write(StorageKeys.gamepadLayout, jsonString);
+  }
+
+  Future<GamepadLayout?> getGamepadLayout() async {
+    final jsonString = await _prefs.read(StorageKeys.gamepadLayout);
+    if (jsonString == null) return null;
+    return GamepadLayout.fromJson(jsonDecode(jsonString));
+  }
+
+  // ------------------ Gamepad Settings ----------------
+  Future<void> setGamepadSettings(GamepadSettings settings) async {
+    final jsonString = jsonEncode(settings.toJson());
+    await _prefs.write(StorageKeys.gamepadSettings, jsonString);
+  }
+
+  Future<GamepadSettings?> getGamepadSettings() async {
+    final jsonString = await _prefs.read(StorageKeys.gamepadSettings);
+    if (jsonString == null) return null;
+    return GamepadSettings.fromJson(jsonDecode(jsonString));
   }
 
   // --- UTILITY ---
