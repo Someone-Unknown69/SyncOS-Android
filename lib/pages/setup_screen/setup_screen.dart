@@ -9,7 +9,7 @@ import 'package:syncos_android/core/network/provider/connection_provider.dart';
 import 'package:syncos_android/features/pairing/provider/pairing_notifier.dart';
 import 'package:syncos_android/pages/components/base_page.dart';
 import 'package:syncos_android/pages/components/fab_menu.dart';
-import 'package:syncos_android/pages/components/settings_tile.dart';
+import 'package:syncos_android/pages/components/setting_components.dart';
 import 'package:syncos_android/theme/app_theme.dart';
 
 class SetupScreen extends ConsumerStatefulWidget {
@@ -118,7 +118,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
         ],
       ),
       children: [
-        buildSectionHeader(context, 'Nearby Devices'),
+        SectionHeader(title: 'Nearby Devices'),
         const SizedBox(height: AppTheme.spacing),
         
         if (_nearbyDevices.isEmpty)

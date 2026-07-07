@@ -10,8 +10,7 @@ import 'package:syncos_android/core/storage/provider/storage_service_provider.da
 import 'package:syncos_android/features/pairing/provider/pairing_notifier.dart';
 import 'package:syncos_android/pages/components/base_page.dart';
 import 'package:syncos_android/pages/components/popup_dialog.dart';
-import 'package:syncos_android/theme/app_theme.dart';
-import '../components/settings_tile.dart';
+import 'package:syncos_android/pages/components/setting_components.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -22,8 +21,8 @@ class SettingsScreen extends ConsumerWidget {
       title: 'Settings', 
       showBackButton: false,
       children: [
-        buildSectionHeader(context, 'Connection & Server'),
-        buildSettingsTile(
+        SectionHeader(title: 'Connection & Server'),
+        SettingsTile(
           icon: Icons.lan_rounded,
           title: 'Connection Details',
           subtitle: 'Display server IP and Port',
@@ -32,7 +31,7 @@ class SettingsScreen extends ConsumerWidget {
           },
         ),
 
-        buildSettingsTile(
+        SettingsTile(
           icon: Icons.qr_code_scanner_rounded,
           title: 'Pair New Device',
           subtitle:'Scan or enter IP and port',
@@ -75,10 +74,8 @@ class SettingsScreen extends ConsumerWidget {
           },
         ),
 
-        const SizedBox(height: AppTheme.spacing),
-
-        buildSectionHeader(context, 'Preferences'),
-        buildSettingsTile(
+        SectionHeader(title: 'Preferences'),
+        SettingsTile(
           icon: Icons.palette_rounded,
           title: 'Theme Mode',
           subtitle: 'System default, light, or dark mode',
@@ -87,10 +84,8 @@ class SettingsScreen extends ConsumerWidget {
           },
         ),
 
-        const SizedBox(height: AppTheme.spacing),
-
-        buildSectionHeader(context, 'About'),
-        buildSettingsTile(
+        SectionHeader(title: 'About'),
+        SettingsTile(
           icon: Icons.info_outline_rounded,
           title: 'SyncOS',
           subtitle: 'Version 1.0.0',

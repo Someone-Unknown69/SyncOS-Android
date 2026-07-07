@@ -3,9 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncos_android/pages/components/base_page.dart';
+import 'package:syncos_android/pages/components/setting_components.dart';
 import 'package:syncos_android/theme/provider/theme_provider.dart';
 import 'widgets/color_picker.dart';
-import '../../components/settings_tile.dart';
 
 class ThemeModePage extends ConsumerWidget {
   const ThemeModePage({super.key});
@@ -18,10 +18,10 @@ class ThemeModePage extends ConsumerWidget {
       title: 'Preferences', 
       showBackButton: true,
       children: [
-        buildSectionHeader(context, 'Appearance'),
+        SectionHeader(title: 'Appearance'),
             
         // Light / Dark Theme Toggle
-        buildSettingsTile(
+        SettingsTile(
           icon: Icons.dark_mode_rounded,
           title: 'Theme Mode',
           subtitle: 'Switch between light and dark mode',
@@ -36,7 +36,7 @@ class ThemeModePage extends ConsumerWidget {
         ),
 
         // Theme Color Selection
-        buildSettingsTile(
+        SettingsTile(
           icon: Icons.color_lens_rounded,
           title: 'App Theme',
           subtitle: 'Select your preferred accent color',

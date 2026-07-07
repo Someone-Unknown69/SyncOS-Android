@@ -3,42 +3,55 @@
 import 'package:flutter/material.dart';
 import 'package:syncos_android/theme/app_theme.dart';
 
-Widget buildTile({
-  Widget? leading,
-  required String title,
-  String? subtitle,
-  VoidCallback? onTap,
-  Color? backgroundColor, 
-  Color? textColor,      
-}) {
-  return Card(
-    elevation: 0,
-    margin: const EdgeInsets.symmetric(vertical: 4),
-    color: backgroundColor,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-    ),
-    clipBehavior: Clip.antiAlias,
-    child: ListTile(
-      onTap: onTap,
-      leading: leading,
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight: FontWeight.w500,
-          color: textColor, 
-        ),
+class CustomTile extends StatelessWidget {
+  final Widget? leading;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+  final Color? backgroundColor;
+  final Color? textColor;
+
+  const CustomTile({
+    super.key,
+    this.leading,
+    required this.title,
+    this.subtitle,
+    this.onTap,
+    this.backgroundColor,
+    this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      color: backgroundColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
       ),
-      subtitle: subtitle != null
-          ? Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 13,
-                color: textColor?.withValues(alpha: 0.8), 
-              ),
-            )
-          : null,
-      trailing: null,
-    ),
-  );
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        onTap: onTap,
+        leading: leading,
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            color: textColor,
+          ),
+        ),
+        subtitle: subtitle != null
+            ? Text(
+                subtitle!,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: textColor?.withValues(alpha: 0.8),
+                ),
+              )
+            : null,
+        trailing: null,
+      ),
+    );
+  }
 }

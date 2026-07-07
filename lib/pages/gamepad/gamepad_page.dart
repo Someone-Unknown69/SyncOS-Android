@@ -4,8 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:syncos_android/core/config/app_router.dart';
 import 'package:syncos_android/core/config/app_routes.dart';
 import 'package:syncos_android/pages/components/base_page.dart';
-import '../../theme/app_theme.dart';
-import '../components/settings_tile.dart';
+import 'package:syncos_android/pages/components/setting_components.dart';
 
 class GamepadPage extends StatelessWidget {
   const GamepadPage({super.key});
@@ -15,20 +14,19 @@ class GamepadPage extends StatelessWidget {
     return BasePage(
       title: 'Gamepad',
       children: [
-        buildSectionHeader(context, 'Play time !'),
+        const SectionHeader(title: 'Play time !'),
 
-        buildSettingsTile(
-          icon: Icons.sports_esports,
-          title: "Launch Gamepad",
+        SettingsTile(
+          icon: Icons.sports_esports, 
+          title: "Launch Gamepad", 
           onTap: () {
             AppRouter.pushRoute(context, AppRoutes.launchGamepad);
           },
         ),
-        const SizedBox(height: AppTheme.spacing),
 
-        buildSectionHeader(context, 'Options'),
+        const SectionHeader(title: 'Options'),
 
-        buildSettingsTile(
+        SettingsTile(
           icon: Icons.settings_overscan_rounded,
           title: 'Configure Layout',
           subtitle: 'Change button positions and size',
@@ -37,9 +35,7 @@ class GamepadPage extends StatelessWidget {
           },
         ),
 
-        const SizedBox(height: AppTheme.spacing / 2),
-
-        buildSettingsTile(
+        SettingsTile(
           icon: Icons.settings,
           title: 'Gamepad Settings',
           subtitle: 'Change style, latency etc',

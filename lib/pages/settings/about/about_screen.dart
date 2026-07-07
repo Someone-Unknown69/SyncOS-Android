@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:syncos_android/pages/components/base_page.dart';
-import 'package:syncos_android/pages/components/settings_tile.dart';
+import 'package:syncos_android/pages/components/setting_components.dart';
 import 'package:syncos_android/pages/components/tile.dart';
 import 'package:syncos_android/theme/app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -90,7 +90,7 @@ class AboutScreen extends StatelessWidget {
         ),
         const SizedBox(height: 24),
 
-        buildSectionHeader(context, 'Developer'),
+        SectionHeader(title: 'Developer'),
         
         Container(
           margin: const EdgeInsets.symmetric(vertical: 4),
@@ -151,21 +151,21 @@ class AboutScreen extends StatelessWidget {
           ),
         ),
 
-        buildSectionHeader(context, 'App Info'),
-        buildTile(
+        SectionHeader(title: 'App Info'),
+        CustomTile(
           leading: const Icon(Icons.code_rounded),
           title: 'Github Repository',
           subtitle: 'View source Code',
           onTap: () => launchUrl(Uri.parse('https://github.com/Someone-Unknown69/SyncOS/tree/main/syncos_android')),
         ),
 
-        buildTile(
+        CustomTile(
           leading: const Icon(Icons.numbers_rounded),
           title: 'Build Version',
           subtitle: '2026.0.0.2',
         ),
 
-        buildTile(
+        CustomTile(
           leading: Icon(Icons.description_rounded), 
           title: 'General Public License v3.0',
           subtitle: 'GPL v3.0 - Free Open Source Software',
