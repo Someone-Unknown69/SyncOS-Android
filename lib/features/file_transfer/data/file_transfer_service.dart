@@ -1,189 +1,321 @@
 // Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
-
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'package:crypto/crypto.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:syncos_android/core/misc/app_logging.dart';
+import 'package:syncos_android/core/network/domain/connection_config.dart';
+import 'package:syncos_android/core/network/domain/i_file_transfer_channel.dart';
+import 'package:syncos_android/core/storage/domain/i_file_picker.dart';
+import 'package:syncos_android/core/storage/domain/models/file_structure.dart';
+import 'package:syncos_android/features/file_transfer/domain/models/file_transfer_state.dart';
+import 'package:syncos_android/features/file_transfer/provider/file_transfer_notifier.dart';
 import '../../../core/network/domain/i_connection_manager.dart';
-import '../../../core/storage/domain/i_file_service.dart';
-import '../../../core/network/domain/i_file_transfer_manager.dart';
 import '../../../core/notification/domain/i_notification_service.dart';
 
-
-// The sendFile method initiates a handshake by sending connectioninfo including size and checksum over 
-// the command channel before streaming the file body. 
-// RecieveFile acts as an entry point for incoming metadata, 
-// Verifys the final checksum against the source. 
-
 class FileTransferService {
-  final IConnectionManager _channel;
-  final IFileService _fileService;
-  final IFileTransferManager _fileTransferManager;
+  final Ref _ref;
+  final IConnectionManager _connectionManager;
+  final IFilePicker _filePicker;
+  final IFileTransferChannel _fileTransferChannel;
   final INotificationService _notificationService;
 
-  static const int _notifId = 101;
+  FileTransferNotifier get _notifier => _ref.read(fileTransferState.notifier);
 
-  static const notificationThrottleMs = 500;
+  final int port = 4244;
+
+  bool _isTransferInProgress = false;
+
+  // Tracks checksums/files that arrive out of order relative to each
+  final Map<String, String> _pendingChecksums = {};
+  final Map<String, FileMetadata> _completedFiles = {};
+
+  // Subscription to the channel's byte-progress stream so we can
+  // forward updates into the notifier for the UI.
+  StreamSubscription<int>? _progressSub;
 
   FileTransferService(
-    this._channel, 
-    this._fileService, 
-    this._fileTransferManager, 
-    this._notificationService
+    this._ref,
+    this._connectionManager,
+    this._filePicker,
+    this._fileTransferChannel,
+    this._notificationService,
   );
 
-  Future<void> sendFile() async {
-    final filePath = await _fileService.pickFile();
-    if (filePath == null) {
-      debugPrint('[FTP] File selection cancelled');
+  void _log(String message) {
+    logDebug('File Transfer Service', message);
+  }
+
+  void _subscribeToProgress() {
+    _progressSub?.cancel();
+    _progressSub = _fileTransferChannel.bytesTransferredStream.listen((bytes) {
+      _notifier.updateBytes(bytes);
+    });
+  }
+
+  void _unsubscribeFromProgress() {
+    _progressSub?.cancel();
+    _progressSub = null;
+  }
+
+  /// Prompts the user to pick files, then opens the channel and streams
+  /// them to the peer in the order they were picked. Checksums are
+  /// computed in the background and pushed separately over the
+  /// connection manager, so they never block the transfer itself.
+  void initSend() async {
+    final picked = await _filePicker.pickFiles();
+    if (picked == null || picked.isEmpty) {
+      _log('initSend aborted: no files selected');
       return;
     }
-    
-    final file = File(filePath);
-    if (!await file.exists()) return;
 
-    final fileName = file.path.split(Platform.pathSeparator).last;
-    final fileSize = await file.length();
-    
-    debugPrint('[FTP] Calculating checksum for $fileName');
-    final checksum = await _fileService.calculateChecksum(file.path);
+    final ip = await _getCurrentIpAddress();
+    if (ip == null) {
+      _log('initSend aborted: could not determine local IP address');
+      return;
+    }
 
-    final (socketFuture, connectionInfo) = await _fileTransferManager.send();
-    debugPrint('[FTP] Side server ready for connection with $connectionInfo');
+    _notifier.startNewSession(picked.length);
+    _subscribeToProgress();
 
-    _channel.send('file_transfer', 'receive', {
-      'fileName': fileName,
-      'fileSize': fileSize,
-      'checksum': checksum,
-      'connectionInfo': connectionInfo,
-      'mimeType': 'application/octet-stream',
+    final config = TcpConfig(ip: ip, port: port);
+    _connectionManager.send('file_transfer', 'open_channel', {
+      ...config.toJson(),
+      'fileCount': picked.length,
     });
+    _log('Sent open channel command (fileCount: ${picked.length}) to peer');
+
+    await _fileTransferChannel.openAsServer(port);
+    _log('Channel open. Sending ${picked.length} file(s) in order');
+
+    _notifier.updateStatus(TransferStatus.sending);
+
+    for (final metadata in picked) {
+      final file = File(metadata.filePath);
+      if (!await file.exists()) {
+        _log('Skipping missing file: ${metadata.filePath}');
+        continue;
+      }
+
+      unawaited(_computeAndSendChecksum(metadata));
+
+      _log(
+        'Sending file: ${metadata.fileName} (${metadata.fileSize} bytes, id: ${metadata.fileId})',
+      );
+      _notifier.startNewFile(metadata);
+      try {
+        await _fileTransferChannel.sendFile(metadata);
+        _log('Finished sending: ${metadata.fileName}');
+        _notifier.addToHistory(TransferRecord(
+          fileName: metadata.fileName,
+          fileSize: metadata.fileSize,
+          mimeType: metadata.mimeType,
+          status: TransferStatus.successful,
+          direction: TransferDirection.sent,
+          timestamp: DateTime.now(),
+        ));
+      } catch (e) {
+        _log('Failed to send file ${metadata.fileName}: $e');
+        _notifier.addToHistory(TransferRecord(
+          fileName: metadata.fileName,
+          fileSize: metadata.fileSize,
+          mimeType: metadata.mimeType,
+          status: TransferStatus.failed,
+          direction: TransferDirection.sent,
+          timestamp: DateTime.now(),
+        ));
+      }
+    }
+
+    _unsubscribeFromProgress();
+    await _fileTransferChannel.close();
+    _notifier.resetToIdle();
+    _log('All files sent and Channel closed');
+  }
+
+  Future<void> _computeAndSendChecksum(FileMetadata metadata) async {
+    try {
+      final checksum = await _calculateFileChecksum(metadata.filePath);
+      _connectionManager.send('file_transfer', 'checksum', {
+        'fileId': metadata.fileId,
+        'checksum': checksum,
+      });
+      _log('Checksum computed and sent for ${metadata.fileName}: $checksum');
+    } catch (e) {
+      _log('Checksum computation failed for ${metadata.fileName}: $e');
+    }
+  }
+
+  /// Connects to the sender and receives [expectedCount] files in order,
+  /// saving each to external storage. Call this once the dispatcher
+  /// receives 'open_channel' (args should contain ip, port, fileCount).
+  Future<List<FileMetadata>> initReceive(Map<String, dynamic> args) async {
+    if (_isTransferInProgress) {
+      _log('initReceive ignored: a transfer is already in progress');
+      return [];
+    }
+    _isTransferInProgress = true;
 
     try {
-      debugPrint('[FTP] Waiting for receiver to connect');
-      final socket = await socketFuture.timeout(const Duration(seconds: 5));
+      final ip = args['ip'] as String;
+      final port = args['port'] as int;
+      final expectedCount = args['fileCount'] as int? ?? 1;
 
-      final sink = socket; 
+      _pendingChecksums.clear();
+      _completedFiles.clear();
 
-      int sentSize = 0;
-      int lastNotificationTime = 0;
-      
-      // Show starting notification
-      _notificationService.showTransferProgress(
-        id: _notifId, 
-        title: 'File Transfer', 
-        body: 'Starting $fileName...',
-        progress: 0,
-      );
+      _notifier.startNewSession(expectedCount);
+      _subscribeToProgress();
 
-      await for (List<int> chunk in file.openRead()) {
-        sink.add(chunk);
-        sentSize += chunk.length;
-        
-        final now = DateTime.now().millisecondsSinceEpoch;
+      await _fileTransferChannel.openAsClient(ip, port);
+      _log('Connected to sender. Expecting $expectedCount file(s)');
 
-        if(now - lastNotificationTime >= notificationThrottleMs) {
-          final int progress = ((sentSize / fileSize) * 100).round();
+      _notifier.updateStatus(TransferStatus.receiving);
 
-          // We gonna call it unawaited so it doesn't add to latency
-          _notificationService.showTransferProgress(
-            id: _notifId, 
-            title: 'File Transfer', 
-            body: 'Sending $fileName',
-            progress: progress,
-          );
+      final savePath = await _filePicker.getExternalStoragePath();
+      final received = <FileMetadata>[];
 
-          lastNotificationTime = now;
+      for (int i = 0; i < expectedCount; i++) {
+        try {
+          _log('Awaiting file ${i + 1}/$expectedCount');
+          final metadata = await _fileTransferChannel.receiveFile(savePath);
+          _log('Received file: ${metadata.fileName} (id: ${metadata.fileId})');
+
+          received.add(metadata);
+          _completedFiles[metadata.fileId] = metadata;
+          _tryVerifyChecksum(metadata.fileId);
+
+          _notifier.addToHistory(TransferRecord(
+            fileName: metadata.fileName,
+            fileSize: metadata.fileSize,
+            mimeType: metadata.mimeType,
+            status: TransferStatus.successful,
+            direction: TransferDirection.received,
+            timestamp: DateTime.now(),
+          ));
+        } catch (e) {
+          _log('Failed to receive file ${i + 1}/$expectedCount: $e');
+          break;
         }
-
       }
 
-      await sink.close();
-      await _notificationService.dismissNotification(_notifId);
-    } on TimeoutException{
-      debugPrint('[FTP] Error: Connection timed out. Receiver did not connect.');
-      _handleTransferError('Receiver did not respond in time');
-    } on SocketException catch (e) {
-      debugPrint('[FTP] Socket error: ${e.message}');
-      _handleTransferError('Network connection failed.');
+      _unsubscribeFromProgress();
+      await _fileTransferChannel.close();
+      _notifier.resetToIdle();
+      _log(
+        'Receive complete: ${received.length}/$expectedCount files received',
+      );
+      return received;
+    } finally {
+      _isTransferInProgress = false;
+    }
+  }
+
+  /// Call this from wherever the connection manager delivers incoming
+  /// 'file_transfer' / 'checksum' messages, so it can be matched against
+  /// a file that may have already finished (or not yet arrived).
+  void onChecksumMessage(Map<String, dynamic> payload) {
+    final fileId = payload['fileId'] as String?;
+    final checksum = payload['checksum'] as String?;
+    if (fileId == null || checksum == null) return;
+
+    _pendingChecksums[fileId] = checksum;
+    _log('Checksum received for fileId $fileId: $checksum');
+    _tryVerifyChecksum(fileId);
+  }
+
+  void _tryVerifyChecksum(String fileId) {
+    final metadata = _completedFiles[fileId];
+    final checksum = _pendingChecksums[fileId];
+    if (metadata == null || checksum == null) return;
+
+    unawaited(_verifyChecksum(metadata, checksum));
+  }
+
+  Future<void> _verifyChecksum(
+    FileMetadata metadata,
+    String expectedChecksum,
+  ) async {
+    try {
+      final actual = await _calculateFileChecksum(metadata.filePath);
+      final matches = actual == expectedChecksum;
+      _log(
+        matches
+            ? 'Checksum verified OK for ${metadata.fileName}'
+            : 'Checksum MISMATCH for ${metadata.fileName}: expected $expectedChecksum, got $actual',
+      );
     } catch (e) {
-      debugPrint('[FTP] Unexpected error: $e');
-      _handleTransferError('An unknown error occurred.');
+      _log('Checksum verification failed for ${metadata.fileName}: $e');
+    } finally {
+      _pendingChecksums.remove(metadata.fileId);
+      _completedFiles.remove(metadata.fileId);
     }
   }
 
-  void _handleTransferError(String message) {
-    _notificationService.showErrorNotification(
-      id: _notifId, 
-      title: 'Transfer Failed', 
-      error: message,
-    );
+  /// Call this when *we* decide to end the session early (e.g. user
+  /// cancels a transfer mid-way). Notifies the peer so they clean up too.
+  void dispose() {
+    _notifier.updateStatus(TransferStatus.cancelling);
+    _unsubscribeFromProgress();
+    _fileTransferChannel.close();
+    _connectionManager.send('file_transfer', 'close_channel', {});
+    _notifier.resetToIdle();
   }
 
-  Future<void> recieveFile (Map<String, dynamic> metadata) async {
-    debugPrint("[FTP] Starting file recieve");
-    final connectionInfo = metadata['connectionInfo'];
-    final fileName = metadata['fileName'];
-    final expectedChecksum = metadata['checksum'];
-    final fileSize = metadata['fileSize'];
+  void cancelCurrentFileTransfer() {
+    _fileTransferChannel.cancelCurrentTransfer();
+  }
 
+  void cancelAllFileTransfer() {
+    _notifier.updateStatus(TransferStatus.cancelling);
+    _unsubscribeFromProgress();
+    _fileTransferChannel.cancelAllTransfers();
+    _notifier.resetToIdle();
+  }
 
-    final directoryPath = await _fileService.getExternalStoragePath();
-    String savePath = '$directoryPath/$fileName';
-    File file = File(savePath);
+  void handleRemoteClose() {
+    _log('Received close_channel from peer. Closing local channel only');
+    _unsubscribeFromProgress();
+    _fileTransferChannel.close();
+    _notifier.resetToIdle();
+  }
 
-    // handling duplicate files
-    if(await file.exists()) {
-      final String extension = fileName.contains('.') ? fileName.split('.').last : '';
-      final String nameWithoutExtension = fileName.contains('.') 
-          ? fileName.substring(0, fileName.lastIndexOf('.')) 
-          : fileName;
-
-      int counter = 1;
-      while (await file.exists()) {
-        // Construct new name: "test (1).file"
-        savePath = '$directoryPath/$nameWithoutExtension ($counter).$extension';
-        file = File(savePath);
-        counter++;
-      }
-    } 
-
-    final stream = await _fileTransferManager.receive(connectionInfo);
-    final sink = file.openWrite();
-    int receivedSize = 0;
-    int lastNotificationTime = 0;
-
-    await for (List<int> chunk in stream) {
-      sink.add(chunk);
-      receivedSize += chunk.length;
-      final int progress = ((receivedSize / fileSize) * 100).round();
-      
-      final now = DateTime.now().millisecondsSinceEpoch;
-
-      if(now - lastNotificationTime >= notificationThrottleMs) {
-        _notificationService.showTransferProgress(
-          id: _notifId, 
-          title: 'File Transfer', 
-          body: 'Receiving $fileName',
-          progress: progress
-        );
-      }
-    }
-
-    await sink.close();
-    
-    final actualChecksum = await _fileService.calculateChecksum(file.path);
-    if (actualChecksum == expectedChecksum) {
-      debugPrint("[FTP] Transfer Successful: Checksum Matches");
-      await _notificationService.dismissNotification(_notifId);
-    } else {
-      debugPrint("[FTP] Transfer Failed: Checksum Mismatch!");
-      await file.delete(); // Delete corrupted file
-      await _notificationService.showErrorNotification(
-        id: _notifId, 
-        title: fileName, 
-        error: "Checksum Mismatch"
+  Future<String> _calculateFileChecksum(String filePath) async {
+    final file = File(filePath);
+    if (!await file.exists()) {
+      throw FileSystemException(
+        "File missing during hash footprint calculations",
+        filePath,
       );
     }
+    final fileStream = file.openRead();
+    final digest = await sha256.bind(fileStream).first;
+    return digest.toString();
   }
 
+  Future<String?> _getCurrentIpAddress() async {
+    try {
+      final interfaces = await NetworkInterface.list(
+        includeLoopback: false,
+        type: InternetAddressType.IPv4,
+      );
+      for (var interface in interfaces) {
+        if (interface.name.contains('wlan') ||
+            interface.name.contains('eth') ||
+            interface.name.contains('en')) {
+          for (var address in interface.addresses) {
+            if (!address.isLoopback) return address.address;
+          }
+        }
+      }
+      if (interfaces.isNotEmpty && interfaces.first.addresses.isNotEmpty) {
+        return interfaces.first.addresses.first.address;
+      }
+    } catch (e) {
+      _log(
+        'Failed to determine interface adapter local network IP framework: $e',
+      );
+    }
+    return null;
+  }
 }

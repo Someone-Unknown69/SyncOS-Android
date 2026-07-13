@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncos_android/features/clipboard/provider/local_clipboard_sender_provider.dart';
-import 'package:syncos_android/features/file_transfer/provider/file_transfer_provider.dart';
 import 'package:syncos_android/features/media/provider/remote_media_provider.dart';
 
 import '../../core/network/domain/i_connection_manager.dart';
@@ -35,10 +34,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     DashboardItem(
       label: 'Send Files',
       icon: Icons.file_copy,
-      onTap: () async {
-        final fileTransferService = ref.read(fileTransferServiceProvider);
-        fileTransferService.sendFile();
-      },
+      onTap: () => AppRouter.pushRoute(context, AppRoutes.fileTransfer),
     ),
     DashboardItem(
       label: 'Run Command',

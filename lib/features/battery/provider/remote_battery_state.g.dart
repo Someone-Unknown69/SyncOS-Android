@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
-
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
 part of 'remote_battery_state.dart';
@@ -43,7 +41,7 @@ final class BatteryNotifierProvider
   }
 }
 
-String _$batteryNotifierHash() => r'06bc81ce38fc43b243e7dfe7f5440aeff1522779';
+String _$batteryNotifierHash() => r'759b1974fabb784b834a004d65d025b213ad71ad';
 
 abstract class _$BatteryNotifier extends $Notifier<BatteryState> {
   BatteryState build();

@@ -42,10 +42,12 @@ class ProxyCommandDispatcher implements ICommandDispatcher {
           ref.read(deviceInfoProvider.notifier).update(args['name']);
           break;
         case 'file_transfer':
-          if (action == 'receive') {
-            _fileTransferService.recieveFile(args);
-          } else if (action == 'send') {
-            // will add ability to send file requests in future
+          if (action == 'open_channel') {
+            _fileTransferService.initReceive(args);
+          } else if (action == 'close_channel') {
+            _fileTransferService.handleRemoteClose();
+          } else if (action == 'checksum') {
+            _fileTransferService.onChecksumMessage(args);
           }
           break;
       }
