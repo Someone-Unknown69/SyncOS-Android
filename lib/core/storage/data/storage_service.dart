@@ -5,9 +5,12 @@ import 'dart:convert';
 import 'package:syncos_android/core/network/domain/connection_config.dart';
 import 'package:syncos_android/core/storage/domain/i_storage_service.dart';
 import 'package:syncos_android/core/storage/domain/models/app_settings.dart';
+import 'package:syncos_android/core/storage/domain/models/file_structure.dart';
 import 'package:syncos_android/core/storage/domain/models/storage_keys.dart';
 import 'package:syncos_android/features/gamepad/domain/gamepad_layout.dart';
 import 'package:syncos_android/features/gamepad/domain/gamepad_settings.dart';
+import 'package:syncos_android/features/file_transfer/domain/models/file_transfer_state.dart';
+import 'package:syncos_android/core/storage/data/data_storage.dart';
 
 /// ------------------------      StorageService          ----------------------------
 /// This class acts as the centralized "Gatekeeper" for all persistent data in the app.
@@ -27,10 +30,11 @@ import 'package:syncos_android/features/gamepad/domain/gamepad_settings.dart';
 class StorageService {
   final IStorageService _secure;
   final IStorageService _prefs;
+  final IStorageService _data;
 
   final _pairingStatusController = StreamController<bool>.broadcast();
 
-  StorageService(this._secure, this._prefs);
+  StorageService(this._secure, this._prefs, this._data);
 
 
   // ------- Connection Config & Authnentication -----
@@ -124,6 +128,64 @@ class StorageService {
     final jsonString = await _prefs.read(StorageKeys.gamepadSettings);
     if (jsonString == null) return null;
     return GamepadSettings.fromJson(jsonDecode(jsonString));
+  }
+
+  // ---------------- File Transfer History --------------
+
+  /// Appends [record] to the persisted transfer history list.
+  /// The list is capped at [FileTransferSettings.maxHistoryEntries] entries
+  /// (default 100) and is stored as a JSON array.
+  Future<void> addTransferRecord(TransferRecord record) async {
+    final history = await getFileTransferHistory();
+    history.insert(0, record); // newest first
+
+    final settings = await getFileTransferSettings();
+    final cap = settings?.maxHistoryEntries ?? 100;
+    final capped = history.length > cap ? history.sublist(0, cap) : history;
+
+    final encoded = jsonEncode(capped.map((m) => m.toJson()).toList());
+    await _data.write(StorageKeys.fileTransferHistory, encoded);
+  }
+
+  /// Returns all persisted transfer history entries, newest first.
+  Future<List<TransferRecord>> getFileTransferHistory() async {
+    final jsonString = await _data.read(StorageKeys.fileTransferHistory);
+    if (jsonString == null || jsonString.trim().isEmpty) return [];
+
+    try {
+      final list = jsonDecode(jsonString) as List<dynamic>;
+      return list
+          .map((e) => TransferRecord.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Removes a single entry from history by its index.
+  Future<void> removeTransferRecord(int index) async {
+    final history = await getFileTransferHistory();
+    if (index >= 0 && index < history.length) {
+      history.removeAt(index);
+      final encoded = jsonEncode(history.map((m) => m.toJson()).toList());
+      await _data.write(StorageKeys.fileTransferHistory, encoded);
+    }
+  }
+
+  Future<void> clearFileTransferHistory() async {
+    await _data.delete(StorageKeys.fileTransferHistory);
+  }
+
+  Future<void> setFileSettings(FileTransferSettings settings) async {
+    final jsonString = jsonEncode(settings.toJson());
+    await _data.write(StorageKeys.fileTransferSettings, jsonString);
+  }
+
+  Future<FileTransferSettings?> getFileTransferSettings() async {
+    final jsonString = await _data.read(StorageKeys.fileTransferSettings);
+    if (jsonString == null) return null;
+    return FileTransferSettings.fromJson(
+        jsonDecode(jsonString) as Map<String, dynamic>);
   }
 
   // --- UTILITY ---

@@ -80,7 +80,7 @@ class SocketConnectionManager implements IConnectionManager{
       _discoveredConfigsCache.clear();
 
       _discoverySocket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, _discoveryPort);
-      logDebug('Socket', '[Pairing] Discovering nearby devices...');
+      logDebug('Socket', '[Pairing] Discovering nearby devices at $_discoveryPort');
 
       final currentSocket = _discoverySocket;
       if (currentSocket == null) return;

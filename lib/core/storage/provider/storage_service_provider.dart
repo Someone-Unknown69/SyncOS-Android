@@ -2,6 +2,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncos_android/core/network/domain/connection_config.dart';
+import 'package:syncos_android/core/storage/data/data_storage.dart';
 import 'package:syncos_android/core/storage/data/prefs_storage.dart';
 import 'package:syncos_android/core/storage/data/secure_storage.dart';
 import 'package:syncos_android/core/storage/data/storage_service.dart';
@@ -17,7 +18,7 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
 // Provider for StorageService
 final storageServiceProvider = Provider<StorageService>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
-  return StorageService(SecureStorage(), PrefsStorage(prefs));
+  return StorageService(SecureStorage(), PrefsStorage(prefs), DataStorage());
 });
 
 // Expose whether the app is paired (checks secure storage for pairing token)

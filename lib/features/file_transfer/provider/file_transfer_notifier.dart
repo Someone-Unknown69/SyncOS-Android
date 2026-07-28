@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:syncos_android/core/storage/domain/models/file_structure.dart';
+import 'package:syncos_android/core/storage/provider/storage_service_provider.dart';
 import 'package:syncos_android/features/file_transfer/domain/models/file_transfer_state.dart';
 
 part 'file_transfer_notifier.g.dart';
@@ -7,7 +8,18 @@ part 'file_transfer_notifier.g.dart';
 @Riverpod(name: 'fileTransferState')
 class FileTransferNotifier extends _$FileTransferNotifier {
   @override
-  FileTransferState build() => FileTransferState(status: TransferStatus.idle);
+  FileTransferState build() {
+    _loadHistory();
+    return FileTransferState(status: TransferStatus.idle);
+  }
+
+  Future<void> _loadHistory() async {
+    final storage = ref.read(storageServiceProvider);
+    final savedHistory = await storage.getFileTransferHistory();
+    if (savedHistory.isNotEmpty) {
+      state = state.copyWith(history: savedHistory);
+    }
+  }
 
   void startNewSession(int totalFiles) {
     state = state.copyWith(
@@ -36,17 +48,14 @@ class FileTransferNotifier extends _$FileTransferNotifier {
 
   void addToHistory(TransferRecord record) {
     state = state.copyWith(history: [record, ...state.history]);
+    final storage = ref.read(storageServiceProvider);
+    storage.addTransferRecord(record);
   }
 
   void clearHistory() {
     state = state.copyWith(history: const []);
-  }
-
-  void removeHistoryRecord(int index) {
-    if (index >= 0 && index < state.history.length) {
-      final newList = List<TransferRecord>.from(state.history)..removeAt(index);
-      state = state.copyWith(history: newList);
-    }
+    final storage = ref.read(storageServiceProvider);
+    storage.clearFileTransferHistory();
   }
 
   void resetToIdle() {

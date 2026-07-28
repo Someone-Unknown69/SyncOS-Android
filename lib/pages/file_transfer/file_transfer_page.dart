@@ -2,12 +2,16 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:syncos_android/core/config/app_router.dart';
+import 'package:syncos_android/core/config/app_routes.dart';
+import 'package:syncos_android/core/network/domain/i_connection_manager.dart';
+import 'package:syncos_android/core/network/provider/connection_provider.dart';
 import 'package:syncos_android/features/file_transfer/domain/models/file_transfer_state.dart';
 import 'package:syncos_android/features/file_transfer/provider/file_transfer_notifier.dart';
 import 'package:syncos_android/features/file_transfer/provider/file_transfer_provider.dart';
+import 'package:syncos_android/pages/components/base_page.dart';
+import 'package:syncos_android/pages/components/setting_components.dart';
 import 'package:syncos_android/theme/app_theme.dart';
-import 'package:syncos_android/core/network/provider/connection_provider.dart';
-import 'package:syncos_android/core/network/domain/i_connection_manager.dart';
 
 String _formatBytes(int bytes) {
   if (bytes <= 0) return '0 B';
@@ -27,26 +31,80 @@ String _formatTime(DateTime dt) {
   return '$hour:$minute';
 }
 
-IconData _mimeIcon(String mime) {
-  if (mime.startsWith('image/')) return Icons.image_rounded;
-  if (mime.startsWith('video/')) return Icons.videocam_rounded;
-  if (mime.startsWith('audio/')) return Icons.audiotrack_rounded;
-  if (mime.contains('pdf')) return Icons.picture_as_pdf_rounded;
-  if (mime.contains('zip') || mime.contains('tar') || mime.contains('gz')) {
-    return Icons.folder_zip_rounded;
-  }
-  return Icons.insert_drive_file_rounded;
-}
+(IconData, Color) _getFileIconAndColor(String fileName, String mime, ColorScheme cs) {
+  final ext = fileName.contains('.') ? fileName.split('.').last.toLowerCase() : '';
+  final lowerMime = mime.toLowerCase();
 
-Color _mimeColor(String mime, ColorScheme cs) {
-  if (mime.startsWith('image/')) return Colors.orange;
-  if (mime.startsWith('video/')) return Colors.green;
-  if (mime.startsWith('audio/')) return Colors.purple;
-  if (mime.contains('pdf')) return Colors.red;
-  if (mime.contains('zip') || mime.contains('tar') || mime.contains('gz')) {
-    return Colors.amber;
+  // Images
+  if (lowerMime.startsWith('image/') ||
+      ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'heic'].contains(ext)) {
+    return (Icons.image_rounded, Colors.orange);
   }
-  return cs.primary;
+
+  // Videos
+  if (lowerMime.startsWith('video/') ||
+      ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm'].contains(ext)) {
+    return (Icons.movie_rounded, Colors.green);
+  }
+
+  // Audio
+  if (lowerMime.startsWith('audio/') ||
+      ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac'].contains(ext)) {
+    return (Icons.music_note_rounded, Colors.purple);
+  }
+
+  // PDF
+  if (lowerMime.contains('pdf') || ext == 'pdf') {
+    return (Icons.picture_as_pdf_rounded, Colors.red);
+  }
+
+  // Zip / Archives
+  if (lowerMime.contains('zip') ||
+      lowerMime.contains('compressed') ||
+      lowerMime.contains('tar') ||
+      lowerMime.contains('archive') ||
+      ['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'].contains(ext)) {
+    return (Icons.folder_zip_rounded, Colors.amber.shade700);
+  }
+
+  // Text / Plain Documents
+  if (lowerMime.startsWith('text/') ||
+      ['txt', 'log', 'md', 'csv', 'rtf'].contains(ext)) {
+    return (Icons.description_rounded, Colors.blue);
+  }
+
+  // Word Documents
+  if (['doc', 'docx', 'odt'].contains(ext) || lowerMime.contains('word')) {
+    return (Icons.article_rounded, Colors.indigo);
+  }
+
+  // Spreadsheets
+  if (['xls', 'xlsx', 'ods'].contains(ext) || lowerMime.contains('spreadsheet') || lowerMime.contains('excel')) {
+    return (Icons.table_chart_rounded, Colors.teal);
+  }
+
+  // Presentations
+  if (['ppt', 'pptx', 'odp'].contains(ext) || lowerMime.contains('presentation') || lowerMime.contains('powerpoint')) {
+    return (Icons.slideshow_rounded, Colors.deepOrange);
+  }
+
+  // Code / Developer files
+  if (['dart', 'json', 'xml', 'html', 'css', 'js', 'ts', 'py', 'cpp', 'c', 'h', 'java', 'kt', 'rs', 'go', 'sh', 'yaml', 'yml'].contains(ext)) {
+    return (Icons.code_rounded, Colors.cyan);
+  }
+
+  // Android APKs
+  if (ext == 'apk' || lowerMime.contains('android.package-archive')) {
+    return (Icons.android_rounded, Colors.lightGreen);
+  }
+
+  // Executables & Installers
+  if (['exe', 'msi', 'appimage', 'deb', 'rpm'].contains(ext)) {
+    return (Icons.terminal_rounded, Colors.blueGrey);
+  }
+
+  // Default file fallback
+  return (Icons.insert_drive_file_rounded, cs.primary);
 }
 
 // ─── page ────────────────────────────────────────────────────────────────────
@@ -66,7 +124,6 @@ class _FileTransferPageState extends ConsumerState<FileTransferPage> {
     final state = ref.watch(fileTransferState);
     final service = ref.read(fileTransferServiceProvider);
     final colorScheme = Theme.of(context).colorScheme;
-    final theme = Theme.of(context);
     final isActive = state.status != TransferStatus.idle;
 
     final connectionStatus = ref.watch(connectionStatusProvider).value ?? ConnectionStatus.disconnected;
@@ -78,186 +135,102 @@ class _FileTransferPageState extends ConsumerState<FileTransferPage> {
       return record.direction == _selectedFilter;
     }).toList();
 
-    final totalCount = filteredHistory.length;
-    final totalBytes = filteredHistory.fold<int>(0, (sum, item) => sum + item.fileSize);
+    return BasePage(
+      title: 'File Transfer',
+      showBackButton: true,
+      children: [
+        // ── Send button ──────────────────────────────────────────────────
+        _SendButton(isActive: isActive, isConnected: isConnected, service: service),
+        const SizedBox(height: AppTheme.spacing * 0.5),
 
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: colorScheme.surface,
-        surfaceTintColor: Colors.transparent,
-        title: Text(
-          'File Transfer',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        actions: [
-          if (state.history.isNotEmpty)
-            IconButton(
-              icon: Icon(Icons.delete_sweep_rounded,
-                  color: colorScheme.onSurfaceVariant),
-              tooltip: 'Clear history',
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Clear History'),
-                    content: const Text('Are you sure you want to clear your file transfer history?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          ref.read(fileTransferState.notifier).clearHistory();
-                          Navigator.pop(context);
-                        },
-                        child: Text(
-                          'Clear',
-                          style: TextStyle(color: colorScheme.error),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: CustomScrollView(
-        slivers: [
-          // ── Send button ──────────────────────────────────────────────────
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppTheme.padding,
-                vertical: AppTheme.spacing * 0.5,
-              ),
-              child: _SendButton(isActive: isActive, isConnected: isConnected, service: service),
-            ),
-          ),
-
-          // ── Active transfer card ─────────────────────────────────────────
-          SliverToBoxAdapter(
-            child: AnimatedSize(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOutCubic,
-              child: isActive
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppTheme.padding,
-                        vertical: AppTheme.spacing * 0.5,
-                      ),
-                      child: _ActiveTransferCard(
-                        state: state,
-                        service: service,
-                      ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
-          ),
-
-          // ── Filter segment + Stats ─────────────────────────────────────────
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppTheme.padding,
-                AppTheme.spacing * 1.5,
-                AppTheme.padding,
-                AppTheme.spacing * 0.5,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'History',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      if (filteredHistory.isNotEmpty)
-                        Text(
-                          '$totalCount ${totalCount == 1 ? "file" : "files"} • ${_formatBytes(totalBytes)}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: AppTheme.spacing),
-                  SegmentedButton<TransferDirection?>(
-                    segments: const [
-                      ButtonSegment(
-                        value: null,
-                        label: Text('All'),
-                        icon: Icon(Icons.all_inclusive_rounded, size: 15),
-                      ),
-                      ButtonSegment(
-                        value: TransferDirection.sent,
-                        label: Text('Sent'),
-                        icon: Icon(Icons.arrow_upward_rounded, size: 15),
-                      ),
-                      ButtonSegment(
-                        value: TransferDirection.received,
-                        label: Text('Received'),
-                        icon: Icon(Icons.arrow_downward_rounded, size: 15),
-                      ),
-                    ],
-                    selected: {_selectedFilter},
-                    onSelectionChanged: (Set<TransferDirection?> newSelection) {
-                      setState(() {
-                        _selectedFilter = newSelection.first;
-                      });
-                    },
-                    style: SegmentedButton.styleFrom(
-                      selectedBackgroundColor: colorScheme.primaryContainer,
-                      selectedForegroundColor: colorScheme.onPrimaryContainer,
-                      iconSize: 15,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // ── History list ─────────────────────────────────────────────────
-          filteredHistory.isEmpty
-              ? const SliverToBoxAdapter(
-                  child: _EmptyHistoryPlaceholder(),
-                )
-              : SliverPadding(
+        // ── Active transfer card ─────────────────────────────────────────
+        AnimatedSize(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOutCubic,
+          child: isActive
+              ? Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: AppTheme.padding,
                     vertical: AppTheme.spacing * 0.5,
                   ),
-                  sliver: SliverList.separated(
-                    itemCount: filteredHistory.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(height: AppTheme.spacing * 0.75),
-                    itemBuilder: (context, index) {
-                      final record = filteredHistory[index];
-                      // Find original index in state.history for deletion
-                      final originalIndex = state.history.indexOf(record);
-                      return _HistoryTile(
-                        record: record,
-                        onDelete: originalIndex != -1
-                            ? () => ref.read(fileTransferState.notifier).removeHistoryRecord(originalIndex)
-                            : null,
-                      );
-                    },
+                  child: _ActiveTransferCard(
+                    state: state,
+                    service: service,
                   ),
+                )
+              : const SizedBox.shrink(),
+        ),
+
+        // ── Settings Tile ──────────────────────────────────────────────
+        SettingsTile(
+          icon: Icons.settings_rounded,
+          title: 'File Transfer Settings',
+          subtitle: 'Configure notifications & storage',
+          onTap: () {
+            AppRouter.pushRoute(context, AppRoutes.fileTransferSettings);
+          },
+        ),
+
+        // ── Filter segment + Stats ─────────────────────────────────────────
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+
+              SectionHeader(title: "History"),
+
+              SegmentedButton<TransferDirection?>(
+                segments: const [
+                  ButtonSegment(
+                    value: null,
+                    label: Text('All'),
+                    icon: Icon(Icons.all_inclusive_rounded, size: 15),
+                  ),
+                  ButtonSegment(
+                    value: TransferDirection.sent,
+                    label: Text('Sent'),
+                    icon: Icon(Icons.arrow_upward_rounded, size: 15),
+                  ),
+                  ButtonSegment(
+                    value: TransferDirection.received,
+                    label: Text('Received'),
+                    icon: Icon(Icons.arrow_downward_rounded, size: 15),
+                  ),
+                ],
+                selected: {_selectedFilter},
+                onSelectionChanged: (Set<TransferDirection?> newSelection) {
+                  setState(() {
+                    _selectedFilter = newSelection.first;
+                  });
+                },
+                style: SegmentedButton.styleFrom(
+                  selectedBackgroundColor: colorScheme.primaryContainer,
+                  selectedForegroundColor: colorScheme.onPrimaryContainer,
+                  iconSize: 15,
+                  visualDensity: VisualDensity.compact,
                 ),
-        ],
-      ),
+              ),
+            ],
+        ),
+
+        // ── History list ─────────────────────────────────────────────────
+        if (filteredHistory.isEmpty)
+          const _EmptyHistoryPlaceholder()
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(
+              vertical: AppTheme.spacing * 0.5,
+            ),
+            itemCount: filteredHistory.length,
+            separatorBuilder: (context, index) =>
+                const SizedBox(height: AppTheme.spacing * 0.75),
+            itemBuilder: (context, index) {
+              final record = filteredHistory[index];
+              return _HistoryTile(record: record);
+            },
+          ),
+        const SizedBox(height: AppTheme.padding * 2),
+      ],
     );
   }
 }
@@ -281,70 +254,74 @@ class _SendButton extends StatelessWidget {
     final theme = Theme.of(context);
     final enabled = isConnected && !isActive;
 
-    return Ink(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(vertical: AppTheme.spacing / 3),
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppTheme.borderRadius),
       ),
+      color: enabled
+          ? colorScheme.surfaceContainerLow
+          : colorScheme.surfaceContainerLowest.withValues(alpha: 0.6),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: enabled ? () => service.initSend() : null,
-        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
         splashColor: colorScheme.primary.withValues(alpha: 0.1),
         highlightColor: Colors.transparent,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-          child: Row(
-            children: [
+          padding: const EdgeInsets.symmetric(horizontal: AppTheme.padding, vertical: 28),
+          child: SizedBox(
+            width: double.infinity,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: enabled
-                      ? colorScheme.primary.withValues(alpha: 0.1)
-                      : colorScheme.onSurface.withValues(alpha: 0.05),
+                      ? colorScheme.primaryContainer
+                      : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.upload_file_rounded,
-                  size: 28,
-                  color: enabled ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                  size: 32,
+                  color: enabled
+                      ? colorScheme.onPrimaryContainer
+                      : colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                 ),
               ),
-              const SizedBox(width: AppTheme.padding),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Send Files',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: enabled ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      !isConnected
-                          ? 'Connect to desktop first'
-                          : isActive
-                              ? 'Transfer in progress…'
-                              : 'Select and transfer files to your desktop',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+              const SizedBox(height: AppTheme.spacing),
+              Text(
+                'Send Files to PC',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: enabled
+                      ? colorScheme.onSurface
+                      : colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                 ),
               ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: enabled
-                    ? colorScheme.onSurfaceVariant
-                    : colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+              const SizedBox(height: 4),
+              Text(
+                !isConnected
+                    ? 'Connect to desktop first'
+                    : isActive
+                        ? 'Transfer in progress…'
+                        : 'Select and transfer files to your desktop',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: enabled
+                      ? colorScheme.onSurfaceVariant
+                      : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
               ),
             ],
           ),
         ),
       ),
+    ),
     );
   }
 }
@@ -645,12 +622,8 @@ class _StatusChip extends StatelessWidget {
 
 class _HistoryTile extends StatelessWidget {
   final TransferRecord record;
-  final VoidCallback? onDelete;
 
-  const _HistoryTile({
-    required this.record,
-    this.onDelete,
-  });
+  const _HistoryTile({required this.record});
 
   @override
   Widget build(BuildContext context) {
@@ -658,7 +631,7 @@ class _HistoryTile extends StatelessWidget {
     final theme = Theme.of(context);
     final isSuccess = record.status == TransferStatus.successful;
     final isSent = record.direction == TransferDirection.sent;
-    final typeColor = _mimeColor(record.mimeType, colorScheme);
+    final (fileIcon, typeColor) = _getFileIconAndColor(record.fileName, record.mimeType, colorScheme);
 
     return Container(
       decoration: BoxDecoration(
@@ -680,11 +653,10 @@ class _HistoryTile extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: typeColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    _mimeIcon(record.mimeType),
+                    fileIcon,
                     size: 22,
                     color: typeColor,
                   ),
@@ -777,21 +749,6 @@ class _HistoryTile extends StatelessWidget {
                 ],
               ),
             ),
-
-            const SizedBox(width: AppTheme.spacing),
-
-            // Individual delete action
-            if (onDelete != null)
-              IconButton(
-                icon: Icon(
-                  Icons.delete_outline_rounded,
-                  size: 20,
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                ),
-                onPressed: onDelete,
-                tooltip: 'Delete from history',
-                splashRadius: 20,
-              ),
           ],
         ),
       ),

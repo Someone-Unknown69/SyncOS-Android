@@ -8,6 +8,7 @@ import 'package:syncos_android/core/misc/app_logging.dart';
 import 'package:syncos_android/core/network/domain/i_file_transfer_channel.dart';
 import 'package:syncos_android/core/storage/domain/models/file_structure.dart';
 
+
 // Frame types for the binary wire protocol
 const int _typeJson = 0x01;
 const int _typeFileStart = 0x02;
@@ -28,10 +29,12 @@ const int _typeCancelAll = 0x06;
 // |----------------------------------------------------------------------------------------|
 
 class FileTransferChannel implements IFileTransferChannel {
-  ServerSocket? _serverSocket;
-  Socket? _socket;
-  StreamSubscription? _socketSubscription;
+  // Main Channel (TCP)
+  ServerSocket? _mainServerSocket;
+  Socket? _mainSocket;
+  StreamSubscription? _mainSocketSubscription;
 
+  // Message Queue
   final Queue<Map<String, dynamic>> _messageQueue = Queue();
   final BytesBuilder _recvBuffer = BytesBuilder(copy: false);
 
@@ -66,8 +69,7 @@ class FileTransferChannel implements IFileTransferChannel {
 
   // Broadcast stream emitting cumulative bytes for the current file.
   // Resets to 0 at each file_start / sendFile call.
-  StreamController<int> _bytesController =
-      StreamController<int>.broadcast();
+  StreamController<int> _bytesController = StreamController<int>.broadcast();
 
   @override
   Stream<int> get bytesTransferredStream => _bytesController.stream;
@@ -76,10 +78,10 @@ class FileTransferChannel implements IFileTransferChannel {
 
   @override
   Future<void> openAsServer(int port) async {
-    if (_serverSocket != null) {
+    if (_mainServerSocket != null) {
       _log('Server socket already bound, closing before rebinding');
-      await _serverSocket!.close();
-      _serverSocket = null;
+      await _mainServerSocket!.close();
+      _mainServerSocket = null;
     }
 
     _isClosed = false;
@@ -87,12 +89,13 @@ class FileTransferChannel implements IFileTransferChannel {
     _finishChain = Future.value();
 
     _log('Binding server socket on port: $port');
-    _serverSocket = await ServerSocket.bind(InternetAddress.anyIPv4, port);
+    _mainServerSocket = await ServerSocket.bind(InternetAddress.anyIPv4, port);
     _log('Server socket bound. Waiting for peer connection');
+
 
     final connectionCompleter = Completer<void>();
 
-    _serverSocket!.listen(
+    _mainServerSocket!.listen(
       (socket) async {
         if (_peerAccepted) {
           // A duplicate/late connection attempt reject it
@@ -108,12 +111,12 @@ class FileTransferChannel implements IFileTransferChannel {
           'Peer connected: ${socket.remoteAddress.address}:${socket.remotePort}',
         );
         socket.setOption(SocketOption.tcpNoDelay, true);
-        _socket = socket;
+        _mainSocket = socket;
         _listen(socket);
 
         // Stop listening for further connections entirely we only ever
         // want exactly one peer per open channel.
-        await _serverSocket?.close();
+        await _mainServerSocket?.close();
 
         if (!connectionCompleter.isCompleted) {
           connectionCompleter.complete();
@@ -131,6 +134,7 @@ class FileTransferChannel implements IFileTransferChannel {
     _log('openAsServer complete peer is connected');
   }
 
+
   @override
   Future<void> openAsClient(String ip, int port) async {
     const int maxAttempts = 5;
@@ -143,10 +147,10 @@ class FileTransferChannel implements IFileTransferChannel {
     for (int attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         _log('Connecting to $ip:$port (attempt $attempt/$maxAttempts)');
-        _socket = await Socket.connect(ip, port);
-        _socket!.setOption(SocketOption.tcpNoDelay, true);
+        _mainSocket = await Socket.connect(ip, port);
+        _mainSocket!.setOption(SocketOption.tcpNoDelay, true);
         _log('Connected to $ip:$port.');
-        _listen(_socket!);
+        _listen(_mainSocket!);
         return;
       } catch (e) {
         _log('Connection attempt $attempt failed: $e');
@@ -159,19 +163,20 @@ class FileTransferChannel implements IFileTransferChannel {
     }
   }
 
+
   void _listen(Socket socket) {
-    _socketSubscription = socket.listen(
+    _mainSocketSubscription = socket.listen(
       (Uint8List data) {
         _recvBuffer.add(data);
         _drainFrames();
       },
       onDone: () {
         _log('Socket closed by remote.');
-        _socketSubscription?.cancel();
+        _mainSocketSubscription?.cancel();
       },
       onError: (e) {
         _log('Socket error: $e');
-        _socketSubscription?.cancel();
+        _mainSocketSubscription?.cancel();
       },
     );
   }
@@ -286,7 +291,7 @@ class FileTransferChannel implements IFileTransferChannel {
 
     try {
       _writeFrame(_typeCancelTransfer, const []);
-      await _socket?.flush();
+      await _mainSocket?.flush();
     } catch (e) {
       _log('Could not send cancel frame (socket might already be dead): $e');
     }
@@ -335,7 +340,7 @@ class FileTransferChannel implements IFileTransferChannel {
 
     try {
       _writeFrame(_typeCancelAll, const []);
-      await _socket?.flush();
+      await _mainSocket?.flush();
     } catch (e) {
       _log('Could not send cancel_all frame: $e');
     }
@@ -406,20 +411,20 @@ class FileTransferChannel implements IFileTransferChannel {
   }
 
   void _writeFrame(int type, List<int> payload) {
-    if (_socket == null) {
+    if (_mainSocket == null) {
       _log('Send failed: channel is not open');
       throw Exception('Channel is not open');
     }
     final header = ByteData(5)
       ..setUint8(0, type)
       ..setUint32(1, payload.length, Endian.big);
-    _socket!.add(header.buffer.asUint8List());
-    if (payload.isNotEmpty) _socket!.add(payload);
+    _mainSocket!.add(header.buffer.asUint8List());
+    if (payload.isNotEmpty) _mainSocket!.add(payload);
   }
 
   @override
   Future<void> sendFile(FileMetadata metadata) async {
-    if (_socket == null) {
+    if (_mainSocket == null) {
       _log('sendFile failed: channel is not open.');
       throw Exception('Channel is not open.');
     }
@@ -448,7 +453,7 @@ class FileTransferChannel implements IFileTransferChannel {
     }
 
     _writeFrame(_typeFileEnd, const []);
-    await _socket!.flush();
+    await _mainSocket!.flush();
     _log(
       'File transfer complete: ${metadata.fileName} ($bytesSent bytes sent)',
     );
@@ -491,13 +496,13 @@ class FileTransferChannel implements IFileTransferChannel {
     }
 
     await _incomingFileSink?.close();
-    await _socketSubscription?.cancel();
-    await _socket?.close();
-    await _serverSocket?.close();
+    await _mainSocketSubscription?.cancel();
+    await _mainSocket?.close();
+    await _mainServerSocket?.close();
 
-    _socket = null;
-    _serverSocket = null;
-    _socketSubscription = null;
+    _mainSocket = null;
+    _mainServerSocket = null;
+    _mainSocketSubscription = null;
     _incomingFileSink = null;
     _incomingMetadata = null;
     _messageQueue.clear();

@@ -11,4 +11,8 @@ class StorageKeys {
   static const String appSettings = 'app_settings';
   static const String gamepadLayout = 'gamepad_layout';
   static const String gamepadSettings = 'gamepad_settings';
+
+  // file transfer
+  static const String fileTransferHistory = 'file_transfer_history';     
+  static const String fileTransferSettings = 'file_transfer_settings';
 }

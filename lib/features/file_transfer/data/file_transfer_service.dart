@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncos_android/core/misc/app_logging.dart';
+import 'package:syncos_android/core/misc/ip_getter.dart';
 import 'package:syncos_android/core/network/domain/connection_config.dart';
 import 'package:syncos_android/core/network/domain/i_file_transfer_channel.dart';
 import 'package:syncos_android/core/storage/domain/i_file_picker.dart';
@@ -34,6 +35,14 @@ class FileTransferService {
   // forward updates into the notifier for the UI.
   StreamSubscription<int>? _progressSub;
 
+  // Notification ID used for the in-progress transfer notification.
+  static const int _kTransferNotificationId = 1001;
+  static const int _kErrorNotificationId = 1002;
+
+  // Throttle: track when we last pushed a progress notification so we
+  // don't hammer the notification shade on every single byte event.
+  DateTime? _lastNotificationAt;
+
   FileTransferService(
     this._ref,
     this._connectionManager,
@@ -44,18 +53,6 @@ class FileTransferService {
 
   void _log(String message) {
     logDebug('File Transfer Service', message);
-  }
-
-  void _subscribeToProgress() {
-    _progressSub?.cancel();
-    _progressSub = _fileTransferChannel.bytesTransferredStream.listen((bytes) {
-      _notifier.updateBytes(bytes);
-    });
-  }
-
-  void _unsubscribeFromProgress() {
-    _progressSub?.cancel();
-    _progressSub = null;
   }
 
   /// Prompts the user to pick files, then opens the channel and streams
@@ -69,13 +66,14 @@ class FileTransferService {
       return;
     }
 
-    final ip = await _getCurrentIpAddress();
+    final ip = await IpGetter().getCurrentIpAddress();
     if (ip == null) {
       _log('initSend aborted: could not determine local IP address');
       return;
     }
 
     _notifier.startNewSession(picked.length);
+    _showProgressInitializing();
     _subscribeToProgress();
 
     final config = TcpConfig(ip: ip, port: port);
@@ -103,6 +101,7 @@ class FileTransferService {
         'Sending file: ${metadata.fileName} (${metadata.fileSize} bytes, id: ${metadata.fileId})',
       );
       _notifier.startNewFile(metadata);
+
       try {
         await _fileTransferChannel.sendFile(metadata);
         _log('Finished sending: ${metadata.fileName}');
@@ -124,10 +123,16 @@ class FileTransferService {
           direction: TransferDirection.sent,
           timestamp: DateTime.now(),
         ));
+        unawaited(_notificationService.showErrorNotification(
+          id: _kErrorNotificationId,
+          title: 'Transfer Failed',
+          error: 'Could not send ${metadata.fileName}',
+        ));
       }
     }
 
     _unsubscribeFromProgress();
+    _showProgressCompleted();
     await _fileTransferChannel.close();
     _notifier.resetToIdle();
     _log('All files sent and Channel closed');
@@ -165,6 +170,7 @@ class FileTransferService {
       _completedFiles.clear();
 
       _notifier.startNewSession(expectedCount);
+      _showProgressInitializing();
       _subscribeToProgress();
 
       await _fileTransferChannel.openAsClient(ip, port);
@@ -200,6 +206,7 @@ class FileTransferService {
       }
 
       _unsubscribeFromProgress();
+      _showProgressCompleted();
       await _fileTransferChannel.close();
       _notifier.resetToIdle();
       _log(
@@ -257,6 +264,7 @@ class FileTransferService {
   void dispose() {
     _notifier.updateStatus(TransferStatus.cancelling);
     _unsubscribeFromProgress();
+    _notificationService.dismissNotification(_kTransferNotificationId);
     _fileTransferChannel.close();
     _connectionManager.send('file_transfer', 'close_channel', {});
     _notifier.resetToIdle();
@@ -269,6 +277,7 @@ class FileTransferService {
   void cancelAllFileTransfer() {
     _notifier.updateStatus(TransferStatus.cancelling);
     _unsubscribeFromProgress();
+    _notificationService.dismissNotification(_kTransferNotificationId);
     _fileTransferChannel.cancelAllTransfers();
     _notifier.resetToIdle();
   }
@@ -293,29 +302,55 @@ class FileTransferService {
     return digest.toString();
   }
 
-  Future<String?> _getCurrentIpAddress() async {
-    try {
-      final interfaces = await NetworkInterface.list(
-        includeLoopback: false,
-        type: InternetAddressType.IPv4,
-      );
-      for (var interface in interfaces) {
-        if (interface.name.contains('wlan') ||
-            interface.name.contains('eth') ||
-            interface.name.contains('en')) {
-          for (var address in interface.addresses) {
-            if (!address.isLoopback) return address.address;
-          }
-        }
-      }
-      if (interfaces.isNotEmpty && interfaces.first.addresses.isNotEmpty) {
-        return interfaces.first.addresses.first.address;
-      }
-    } catch (e) {
-      _log(
-        'Failed to determine interface adapter local network IP framework: $e',
-      );
-    }
-    return null;
+  void _showProgressInitializing() {
+    final totalFiles = _notifier.state.totalFiles;
+    unawaited(_notificationService.showNotification(
+      id: _kTransferNotificationId,
+      title: 'File Transfer Starting',
+      body: 'Preparing $totalFiles file${totalFiles == 1 ? '' : 's'}…',
+    ));
+  }
+
+  void _subscribeToProgress() {
+    _progressSub?.cancel();
+    _progressSub = _fileTransferChannel.bytesTransferredStream.listen((bytes) {
+      _notifier.updateBytes(bytes);
+      _maybeNotifyProgress(bytes);
+    });
+  }
+
+  /// Pushes a progress notification at most once every 500 ms to avoid
+  /// hammering the notification shade on every chunk event.
+  void _maybeNotifyProgress(int bytes) {
+    final file = _notifier.state.currentFile;
+    if (file == null) return;
+
+    final now = DateTime.now();
+    final last = _lastNotificationAt;
+    if (last != null && now.difference(last).inMilliseconds < 500) return;
+    _lastNotificationAt = now;
+
+    final progress = file.fileSize > 0
+        ? ((bytes / file.fileSize) * 100).clamp(0, 100).toInt()
+        : 0;
+    final index = _notifier.state.currentFileIndex;
+    final total = _notifier.state.totalFiles;
+
+    _notificationService.showTransferProgress(
+      id: _kTransferNotificationId,
+      title: file.fileName,
+      body: 'File $index of $total',
+      progress: progress,
+    );
+  }
+
+  void _unsubscribeFromProgress() {
+    _progressSub?.cancel();
+    _progressSub = null;
+    _lastNotificationAt = null;
+  }
+
+  void _showProgressCompleted() {
+    unawaited(_notificationService.dismissNotification(_kTransferNotificationId));
   }
 }

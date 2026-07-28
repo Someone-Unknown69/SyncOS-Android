@@ -15,6 +15,7 @@ class AppRoutes {
   static const String gamepad = '$home/gamepad';
   static const String runCommands = '$home/runCommands';
   static const String fileTransfer = '$home/fileTransfer';
+  static const String fileTransferSettings = '$fileTransfer/settings';
 
   // gamepad page routes
   static const launchGamepad = '$gamepad/launchGamepad';

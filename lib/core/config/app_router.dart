@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:syncos_android/pages/file_transfer/file_transfer_page.dart';
+import 'package:syncos_android/pages/file_transfer/file_transfer_settings_page.dart';
 import 'package:syncos_android/pages/gamepad/gamepad_page.dart';
 import 'package:syncos_android/pages/run_command/command_page.dart';
 import 'package:syncos_android/pages/settings/about/about_screen.dart';
@@ -57,6 +58,8 @@ class AppRouter {
         return _createSlideRoute(const CommandScreen());
       case AppRoutes.fileTransfer:
         return _createSlideRoute(const FileTransferPage());
+      case AppRoutes.fileTransferSettings:
+        return _createSlideRoute(const FileTransferSettingsPage());
 
       case AppRoutes.themeMode:
         return _createSlideRoute(const ThemeModePage());
