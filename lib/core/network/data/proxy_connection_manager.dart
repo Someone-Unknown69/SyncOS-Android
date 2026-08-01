@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:syncos_android/core/misc/app_logging.dart';
 import 'package:syncos_android/core/network/domain/i_connection_manager.dart';
 import 'package:syncos_android/core/network/domain/connection_config.dart';
 import 'package:rxdart/rxdart.dart';
@@ -106,6 +107,11 @@ class ProxyConnectionManager implements IConnectionManager {
   @override
   void disconnect() {
     _service.invoke('disconnect');
+  }
+
+  @override
+  Future<void> manualConnectionStart() async {
+    _service.invoke('manualConnectionStart');
   }
 
   @override

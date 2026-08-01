@@ -103,6 +103,10 @@ class RemoteMediaService implements IRemoteMediaState {
     _sendSeekChange(position);
   }
 
+  void sendVolume(int volume) {
+    _sendVolumeChange(volume);
+  }
+
   void _sendSongChange(String method) {
     // TODO : Register the native changes here and disable the reconfirmation of control updates
 
@@ -112,6 +116,20 @@ class RemoteMediaService implements IRemoteMediaState {
       });
     } else {
       _connectionManager.send('music', 'control', {'method': method});
+    }
+  }
+
+  void _sendVolumeChange(int volume) {
+    if (isUiInstance) {
+      FlutterBackgroundService().invoke('media_control_command', {
+        'method': 'volume',
+        'volume': volume,
+      });
+    } else {
+      _connectionManager.send('music', 'control', {
+        'method': 'volume',
+        'volume': volume,
+      });
     }
   }
 
@@ -171,7 +189,11 @@ class RemoteMediaService implements IRemoteMediaState {
         .listen((message) {
           if (message != null) {
             if (message.containsKey('method')) {
-              _sendSongChange(message['method']);
+              if (message['method'] == 'volume') {
+                _sendVolumeChange(message['volume'] as int);
+              } else {
+                _sendSongChange(message['method']);
+              }
             } else if (message.containsKey('position')) {
               _sendSeekChange(message['position']);
             }

@@ -141,7 +141,6 @@ class _FileTransferPageState extends ConsumerState<FileTransferPage> {
       children: [
         // ── Send button ──────────────────────────────────────────────────
         _SendButton(isActive: isActive, isConnected: isConnected, service: service),
-        const SizedBox(height: AppTheme.spacing * 0.5),
 
         // ── Active transfer card ─────────────────────────────────────────
         AnimatedSize(
@@ -550,7 +549,7 @@ class _ActiveTransferCardState extends ConsumerState<_ActiveTransferCard> {
                       backgroundColor: colorScheme.errorContainer,
                       foregroundColor: colorScheme.onErrorContainer,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.borderRadius * 0.6),
+                        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
                       ),
                     ),
                   ),
@@ -566,7 +565,7 @@ class _ActiveTransferCardState extends ConsumerState<_ActiveTransferCard> {
                       side: BorderSide(
                           color: colorScheme.error.withValues(alpha: 0.5)),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.borderRadius * 0.6),
+                        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
                       ),
                     ),
                   ),

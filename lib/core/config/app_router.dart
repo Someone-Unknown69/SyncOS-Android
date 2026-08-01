@@ -8,6 +8,7 @@ import 'package:syncos_android/pages/run_command/command_page.dart';
 import 'package:syncos_android/pages/settings/about/about_screen.dart';
 import 'package:syncos_android/pages/settings/connection/connection_details.dart';
 import 'package:syncos_android/pages/setup_screen/setup_screen.dart';
+import 'package:syncos_android/pages/music/music_player_page.dart';
 import 'app_routes.dart';
 
 import 'package:syncos_android/pages/home/home_screen.dart';
@@ -60,6 +61,8 @@ class AppRouter {
         return _createSlideRoute(const FileTransferPage());
       case AppRoutes.fileTransferSettings:
         return _createSlideRoute(const FileTransferSettingsPage());
+      case AppRoutes.musicPlayer:
+        return _createSlideRoute(const MusicPlayerPage());
 
       case AppRoutes.themeMode:
         return _createSlideRoute(const ThemeModePage());

@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Kartik. Licensed under GPL-3.0. See LICENSE for details.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncos_android/core/background/background_event_bus.dart';
@@ -16,6 +17,11 @@ import 'package:syncos_android/core/network/domain/connection_config.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+/// MethodChannel to the root Android process for WifiLock + WakeLock management.
+/// The lock manager lives in MainActivity (root isolate) so it survives
+/// background isolate restarts and Doze maintenance window recycling.
+const _androidChannel = MethodChannel('android_channel');
 
 Future<void> initalizeBackgroundServices() async {
   final service = FlutterBackgroundService();
@@ -55,7 +61,10 @@ Future<void> initalizeBackgroundServices() async {
       initialNotificationTitle: 'SyncOS',
       initialNotificationContent: 'Running in background...',
       foregroundServiceNotificationId: 888,
-      foregroundServiceTypes: [AndroidForegroundType.dataSync],
+      // connectedDevice: same type used by KDE Connect. Tells the OS this service
+      // maintains an ongoing physical-device link, exempting it from Doze network
+      // throttling that applies to dataSync foreground services.
+      foregroundServiceTypes: [AndroidForegroundType.connectedDevice],
     ),
     iosConfiguration: IosConfiguration(autoStart: true, onForeground: onStart),
   );
@@ -101,14 +110,39 @@ void onStart(ServiceInstance service) async {
 
   final coordinator = container.read(serviceCoordinatorProvider);
 
-  // Forward status changes to UI
+  // Forward status changes to UI and manage WifiLock + WakeLock lifecycle.
   connectionManager.connectionStatusStream.listen((status) {
     service.invoke('connection_status', {
       'status': status.toString(),
       'config': connectionManager.serverConfig?.toJson(),
     });
 
-    // set's notification
+    // Keep the WifiLock + WakeLock active during all active/seeking states
+    // (connected, connecting, reconnecting, listening, pairing). This is crucial
+    // because when the connection drops, status becomes `listening` to scan for
+    // the server's UDP broadcast. If we release the locks during `listening`,
+    // the Wi-Fi radio immediately enters power-save and misses the UDP packets.
+    if (Platform.isAndroid) {
+      const activeStates = {
+        ConnectionStatus.connected,
+        ConnectionStatus.connecting,
+        ConnectionStatus.reconnecting,
+        ConnectionStatus.listening,
+        ConnectionStatus.pairing,
+      };
+
+      if (activeStates.contains(status)) {
+        _androidChannel
+            .invokeMethod('acquireConnectionLocks')
+            .catchError((e) => logDebug('Daemon', 'Lock acquire failed: $e'));
+      } else {
+        _androidChannel
+            .invokeMethod('releaseConnectionLocks')
+            .catchError((e) => logDebug('Daemon', 'Lock release failed: $e'));
+      }
+    }
+
+    // Update the foreground notification content.
     if (service is AndroidServiceInstance) {
       service.setForegroundNotificationInfo(
         title: "",
@@ -175,6 +209,10 @@ void onStart(ServiceInstance service) async {
     connectionManager.stopDiscovery();
   });
 
+  service.on('manualConnectionStart').listen((event) {
+    connectionManager.manualConnectionStart();
+  });
+  
   service.on('request_initial_state').listen((event) {
     service.invoke('connection_status', {
       'status': connectionManager.status.toString(),
@@ -185,12 +223,18 @@ void onStart(ServiceInstance service) async {
     });
   });
 
-  service.on('stopService').listen((event) {
+  service.on('stopService').listen((event) async {
+    // Release locks before stopping so the Wi-Fi radio can enter power-save mode.
+    if (Platform.isAndroid) {
+      await _androidChannel
+          .invokeMethod('releaseConnectionLocks')
+          .catchError((e) => logDebug('Daemon', 'Lock release on stop failed: $e'));
+    }
     coordinator.dispose();
     container.dispose();
   });
 
-  Timer.periodic(const Duration(seconds: 30), (timer) {
+  Timer.periodic(const Duration(seconds: 60), (timer) {
     logDebug('Daemon', 'Running');
   });
 }

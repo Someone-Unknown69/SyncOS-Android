@@ -7,7 +7,6 @@ import 'package:syncos_android/features/media/provider/remote_media_provider.dar
 
 import '../../core/network/domain/i_connection_manager.dart';
 import '../../core/network/provider/connection_provider.dart';
-import 'package:syncos_android/features/media/ui/music_player.dart';
 import '../components/dashboard_item.dart';
 import '../../theme/app_theme.dart';
 import 'widgets/connection_status.dart';
@@ -53,6 +52,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       label: 'Gamepad',
       icon: Icons.gamepad,
       onTap: () => {AppRouter.pushRoute(context, AppRoutes.gamepad)},
+    ),
+    DashboardItem(
+      label: 'Music',
+      icon: Icons.music_note_rounded,
+      onTap: () => AppRouter.pushRoute(context, AppRoutes.musicPlayer),
     ),
   ];
 
@@ -103,17 +107,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       const Header(),
                       DashboardGrid(items: _items),
                       const SizedBox(height: AppTheme.spacing),
-
-                      Consumer(
-                        builder: (context, ref, child) {
-                          final info = ref
-                              .watch(remoteMediaStreamProvider)
-                              .value;
-                          return (info != null && info.isValid)
-                              ? const MusicPlayerWidget()
-                              : const SizedBox.shrink();
-                        },
-                      ),
                     ] else ...[
                       StatusDisconnected(),
                     ],

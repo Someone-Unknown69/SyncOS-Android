@@ -33,6 +33,7 @@ abstract class IConnectionManager {
   // connection and authorization
   Future<void> autoConnectionStart();
   Future<void> connect(ConnectionConfig config);
+  Future<void> manualConnectionStart();
   void disconnect();
 
   Future<void> pair(ConnectionConfig config);

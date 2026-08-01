@@ -7,6 +7,9 @@ class StorageKeys {
   // config
   static const String connectionConfig = 'connection_config';
 
+  // saved pairing data
+  static const String currentIp = 'current_ip';
+
   // settings
   static const String appSettings = 'app_settings';
   static const String gamepadLayout = 'gamepad_layout';

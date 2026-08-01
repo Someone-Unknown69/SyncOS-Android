@@ -10,22 +10,20 @@ import 'package:syncos_android/core/storage/domain/models/storage_keys.dart';
 import 'package:syncos_android/features/gamepad/domain/gamepad_layout.dart';
 import 'package:syncos_android/features/gamepad/domain/gamepad_settings.dart';
 import 'package:syncos_android/features/file_transfer/domain/models/file_transfer_state.dart';
-import 'package:syncos_android/core/storage/data/data_storage.dart';
 
 /// ------------------------      StorageService          ----------------------------
 /// This class acts as the centralized "Gatekeeper" for all persistent data in the app.
-/// It manages the abstraction between physical storage drivers (Secure vs. Preferences) 
+/// It manages the abstraction between physical storage drivers (Secure vs. Preferences)
 /// and the rest of the application.
-/// 
-/// Keeps sensitive data (tokens) in secure storage and user preferences/configs in 
+///
+/// Keeps sensitive data (tokens) in secure storage and user preferences/configs in
 ///   standard storage.
-/// 
-/// Converts complex Data Models (AppSettings, ConnectionConfig) into JSON strings 
+///
+/// Converts complex Data Models (AppSettings, ConnectionConfig) into JSON strings
 ///   for storage, and parses them back into objects upon retrieval.
-/// 
-/// Provides a unified interface so the UI/Business logic never has to deal with raw 
+///
+/// Provides a unified interface so the UI/Business logic never has to deal with raw
 ///   String keys or manual JSON encoding.
-
 
 class StorageService {
   final IStorageService _secure;
@@ -36,29 +34,27 @@ class StorageService {
 
   StorageService(this._secure, this._prefs, this._data);
 
-
   // ------- Connection Config & Authnentication -----
   Stream<bool> get pairingStream => _pairingStatusController.stream;
-  
-  Future<void> setPairingToken(String token) async { 
+
+  Future<void> setPairingToken(String token) async {
     _secure.write(StorageKeys.pairingToken, token);
     _pairingStatusController.add(true);
   }
 
   Future<void> clearPairingToken() async {
-      _secure.delete(StorageKeys.pairingToken);
-      _pairingStatusController.add(false);
+    _secure.delete(StorageKeys.pairingToken);
+    _pairingStatusController.add(false);
   }
 
-  Future<String?> getPairingToken() => 
-      _secure.read(StorageKeys.pairingToken);
+  Future<String?> getPairingToken() => _secure.read(StorageKeys.pairingToken);
 
   Future<void> clearConnectionConfig() =>
       _prefs.delete(StorageKeys.connectionConfig);
 
   Future<void> setConnectionConfig(ConnectionConfig newConfig) async {
-    final existingConfig = await getConnectionConfig(); 
-    
+    final existingConfig = await getConnectionConfig();
+
     final mergedDeviceName = newConfig.deviceName ?? existingConfig?.deviceName;
     final mergedDeviceOS = newConfig.deviceOS ?? existingConfig?.deviceOS;
 
@@ -74,8 +70,6 @@ class StorageService {
     await _prefs.write(StorageKeys.connectionConfig, jsonString);
   }
 
-
-
   Future<bool> get isPaired async {
     final token = await _secure.read(StorageKeys.pairingToken);
     return token != null && token.isNotEmpty;
@@ -84,7 +78,7 @@ class StorageService {
   Future<ConnectionConfig?> getConnectionConfig() async {
     final jsonString = await _prefs.read(StorageKeys.connectionConfig);
     if (jsonString == null) return null;
-    
+
     final Map<String, dynamic> json = jsonDecode(jsonString);
     final String type = json['type'] as String;
 
@@ -93,6 +87,24 @@ class StorageService {
     return null;
   }
 
+  // Manual pairing
+  Future<ConnectionConfig?> getTargetIp(String? currentIp) async {
+    if(currentIp == null) return null;
+
+    final jsonString = await _prefs.read(StorageKeys.currentIp);
+    if (jsonString == null) return null;
+
+    return ConnectionConfig.fromMap(jsonDecode(jsonString));
+  }
+
+  Future<void> setTargetIp(String? currentIp, ConnectionConfig targetConfig) async {
+    if(currentIp == null) return;
+
+    await _prefs.write(
+      StorageKeys.currentIp,
+      jsonEncode(targetConfig.toJson()),
+    );
+  }
 
   // ------------------ App Settings ----------------
   Future<void> setAppSettings(AppSettings settings) async {
@@ -185,7 +197,8 @@ class StorageService {
     final jsonString = await _data.read(StorageKeys.fileTransferSettings);
     if (jsonString == null) return null;
     return FileTransferSettings.fromJson(
-        jsonDecode(jsonString) as Map<String, dynamic>);
+      jsonDecode(jsonString) as Map<String, dynamic>,
+    );
   }
 
   // --- UTILITY ---
@@ -193,6 +206,4 @@ class StorageService {
     await _secure.clearAll();
     await _prefs.clearAll();
   }
-  
-
 }

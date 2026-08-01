@@ -10,94 +10,146 @@ class StatusDisconnected extends ConsumerWidget {
   const StatusDisconnected({super.key});
 
   @override
-Widget build(BuildContext context, WidgetRef ref) {
-  final theme = Theme.of(context);
-  final connectionManager = ref.watch(connectionManagerProvider);
-  
-  final status = ref.watch(connectionStatusProvider).maybeWhen(
-      data: (s) => s,
-      orElse: () => ConnectionStatus.disconnected,
-  );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final connectionManager = ref.watch(connectionManagerProvider);
 
-  final bool isAttempting = status != ConnectionStatus.disconnected;
+    final status = ref
+        .watch(connectionStatusProvider)
+        .maybeWhen(data: (s) => s, orElse: () => ConnectionStatus.disconnected);
 
-  return Card(
-    elevation: 0,
-    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(AppTheme.borderRadius * 1.5),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(AppTheme.padding * 2),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.laptop_rounded, size: 48, color: theme.colorScheme.error),
-          const SizedBox(height: AppTheme.spacing),
-          Text(
-            "Laptop Disconnected",
-            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: AppTheme.spacing / 2),
-          Text(
-            "Your connection to the machine has been lost.",
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: AppTheme.spacing * 2),
-          
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              FilledButton.icon(
-                onPressed: isAttempting ? null : () => connectionManager.start(),
-                icon: isAttempting 
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.sync_rounded),
-                label: Text(isAttempting ? "Attempting..." : "Attempt Reconnect"),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                ),
+    final bool isAttempting = status != ConnectionStatus.disconnected;
+
+    return Card(
+      elevation: 0,
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.borderRadius * 1.5),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.padding * 2),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.laptop_rounded,
+              size: 48,
+              color: theme.colorScheme.error,
+            ),
+            const SizedBox(height: AppTheme.spacing),
+            Text(
+              "Laptop Disconnected",
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
               ),
-              
-              if (isAttempting) ...[
-                const SizedBox(width: 12),
-                IconButton(
-                  onPressed: () {
-                    connectionManager.stopDiscovery();
-                  },
-                  icon: const Icon(Icons.close_rounded),
-                  style: IconButton.styleFrom(
-                    backgroundColor: theme.colorScheme.errorContainer,
-                    foregroundColor: theme.colorScheme.onErrorContainer,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            ),
+            const SizedBox(height: AppTheme.spacing / 2),
+            Text(
+              "Your connection to the machine has been lost.",
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacing * 2),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FilledButton.icon(
+                  onPressed: isAttempting
+                      ? null
+                      : () => connectionManager.start(),
+                  icon: isAttempting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.sync_rounded),
+                  label: Text(
+                    isAttempting ? "Attempting..." : "Attempt Reconnect",
+                  ),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 16,
+                    ),
                   ),
                 ),
+
+                if (isAttempting) ...[
+                  const SizedBox(width: 12),
+                  IconButton(
+                    onPressed: () {
+                      connectionManager.stopDiscovery();
+                    },
+                    icon: const Icon(Icons.close_rounded),
+                    style: IconButton.styleFrom(
+                      backgroundColor: theme.colorScheme.errorContainer,
+                      foregroundColor: theme.colorScheme.onErrorContainer,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 14,
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ],
-          ),
-                    
-          const SizedBox(height: AppTheme.spacing * 2),
-          Divider(color: theme.colorScheme.outlineVariant),
-          const SizedBox(height: AppTheme.spacing),
-          
-          // Troubleshooting Section
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              "Troubleshooting Tips:",
-              style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
-          ),
-          const SizedBox(height: AppTheme.spacing),
-          _buildTip(theme, Icons.wifi, "Ensure that both devices are on the same Wi-Fi network."),
-          _buildTip(theme, Icons.check_circle_outline, "Verify the remote server is running."),
-          _buildTip(theme, Icons.airplanemode_off, "Check that Airplane mode is disabled."),
-        ],
+
+            const SizedBox(height: AppTheme.spacing),
+
+            FilledButton.icon(
+              onPressed: () => connectionManager.manualConnectionStart(),
+              icon: const Icon(Icons.sync_rounded),
+              label: Text("Manual Reconnect"),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: AppTheme.spacing),
+            Divider(color: theme.colorScheme.outlineVariant),
+            const SizedBox(height: AppTheme.spacing),
+
+            // Troubleshooting Section
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "Troubleshooting Tips:",
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacing),
+            _buildTip(
+              theme,
+              Icons.wifi,
+              "Ensure that both devices are on the same Wi-Fi network.",
+            ),
+            _buildTip(
+              theme,
+              Icons.check_circle_outline,
+              "Verify the remote server is running.",
+            ),
+            _buildTip(
+              theme,
+              Icons.airplanemode_off,
+              "Check that Airplane mode is disabled.",
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildTip(ThemeData theme, IconData icon, String text) {
     return Padding(
@@ -109,7 +161,9 @@ Widget build(BuildContext context, WidgetRef ref) {
           Expanded(
             child: Text(
               text,
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
         ],
@@ -117,3 +171,4 @@ Widget build(BuildContext context, WidgetRef ref) {
     );
   }
 }
+
