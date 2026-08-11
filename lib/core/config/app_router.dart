@@ -77,34 +77,48 @@ class AppRouter {
       case AppRoutes.connectionDetails:
         return _createSlideRoute(const ConnectionDetails());
       case AppRoutes.aboutScreen:
-        return _createSlideRoute(const  AboutScreen());
+        return _createSlideRoute(const AboutScreen());
       default:
         return MaterialPageRoute(
           builder: (_) => Scaffold(
             body: Center(child: Text('No route defined for ${settings.name}')),
           ),
         );
-
     }
   }
 
-  // Sliding Animation
+  // Sliding Animation — incoming page slides in from the right.
+  // secondaryAnimation is consumed (no-op slide) so the previous page
+  // stays put instead of visibly drifting left on push/pop.
   static Route _createSlideRoute(Widget page) {
     return PageRouteBuilder(
       pageBuilder: (context, animation, secondaryAnimation) => page,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        const begin = Offset(1.0, 0.0); 
-        const end = Offset.zero;       
         const curve = Curves.easeInOutCubic;
 
-        var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+        // Incoming page: slides in from the right
+        final enterTween = Tween(
+          begin: const Offset(1.0, 0.0),
+          end: Offset.zero,
+        ).chain(CurveTween(curve: curve));
+
+        // Previous page: stays perfectly still (zero secondary offset)
+        final exitTween = Tween(
+          begin: Offset.zero,
+          end: Offset.zero,
+        ).chain(CurveTween(curve: curve));
 
         return SlideTransition(
-          position: animation.drive(tween),
-          child: child,
+          // Previous page — driven by secondaryAnimation, stays still
+          position: secondaryAnimation.drive(exitTween),
+          child: SlideTransition(
+            // Current page — slides in from right
+            position: animation.drive(enterTween),
+            child: child,
+          ),
         );
       },
-      transitionDuration: const Duration(milliseconds: 400),
+      transitionDuration: const Duration(milliseconds: 350),
     );
   }
 }

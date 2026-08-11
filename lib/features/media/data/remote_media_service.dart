@@ -29,6 +29,8 @@ class RemoteMediaService implements IRemoteMediaState {
   @override
   MediaInfo get currentState => _mediaCache;
 
+  DateTime? get lastCacheTime => _lastCacheTime;
+
   @override
   Stream<MediaInfo> get mediaUpdates => _controller.stream;
 
@@ -107,6 +109,12 @@ class RemoteMediaService implements IRemoteMediaState {
     _sendVolumeChange(volume);
   }
 
+  void requestMediaState() {
+    if (isUiInstance) {
+      FlutterBackgroundService().invoke('request_media_state');
+    }
+  }
+
   void _sendSongChange(String method) {
     // TODO : Register the native changes here and disable the reconfirmation of control updates
 
@@ -120,6 +128,7 @@ class RemoteMediaService implements IRemoteMediaState {
   }
 
   void _sendVolumeChange(int volume) {
+    logDebug("Remote Music", "Volume changed $volume");
     if (isUiInstance) {
       FlutterBackgroundService().invoke('media_control_command', {
         'method': 'volume',
